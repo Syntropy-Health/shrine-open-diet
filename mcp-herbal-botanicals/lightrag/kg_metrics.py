@@ -18,6 +18,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from dotenv import load_dotenv
 
@@ -25,14 +26,11 @@ SCRIPT_DIR = Path(__file__).parent
 REPORTS_DIR = SCRIPT_DIR / ".." / "data" / "kg-reports"
 
 
-def get_neo4j_metrics(uri: str, user: str, password: str) -> dict:
+def get_neo4j_metrics(uri: str, user: str, password: str) -> dict[str, Any]:
     """Query Neo4j for comprehensive KG metrics."""
     from neo4j import GraphDatabase
 
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    session = driver.session()
-
-    metrics: dict = {
+    metrics: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "neo4j_uri": uri,
         "entities": {},
@@ -41,6 +39,14 @@ def get_neo4j_metrics(uri: str, user: str, password: str) -> dict:
         "totals": {},
     }
 
+    with GraphDatabase.driver(uri, auth=(user, password)) as driver, driver.session() as session:
+        _collect_metrics(session, metrics)
+
+    return metrics
+
+
+def _collect_metrics(session, metrics: dict[str, Any]) -> None:
+    """Run all metric queries against the given Neo4j session."""
     # Entity counts by type
     for r in session.run(
         "MATCH (n) RETURN n.entity_type AS type, COUNT(n) AS count ORDER BY count DESC"
@@ -92,18 +98,15 @@ def get_neo4j_metrics(uri: str, user: str, password: str) -> dict:
     samples = {}
     for entity_type in list(metrics["entities"].keys())[:6]:
         r = session.run(
-            f'MATCH (n {{entity_type: "{entity_type}"}}) '
-            "RETURN n.entity_id AS id, n.description AS desc LIMIT 2"
+            "MATCH (n) WHERE n.entity_type = $etype "
+            "RETURN n.entity_id AS id, n.description AS desc LIMIT 2",
+            etype=entity_type,
         )
         samples[entity_type] = [
             {"id": rec["id"], "desc": str(rec["desc"] or "")[:120]}
             for rec in r
         ]
     metrics["samples"] = samples
-
-    session.close()
-    driver.close()
-    return metrics
 
 
 def format_markdown(metrics: dict) -> str:

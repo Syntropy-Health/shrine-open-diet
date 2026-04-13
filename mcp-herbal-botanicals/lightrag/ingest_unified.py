@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import os
 import sqlite3
 import time
@@ -33,6 +32,7 @@ from entity_schema import (
     QUERY_BUILDERS,
     RELATIONSHIP_TYPES,
     describe_relationship,
+    safe_label,
 )
 
 # ---------------------------------------------------------------------------
@@ -61,11 +61,9 @@ def fetch_all(conn: sqlite3.Connection, query: str, limit: int | None = None) ->
     """Fetch all rows as dicts, with optional limit."""
     if limit is not None:
         query = f"{query} LIMIT {limit}"
-    conn.row_factory = sqlite3.Row
     cursor = conn.execute(query)
-    rows = [dict(row) for row in cursor.fetchall()]
-    conn.row_factory = None
-    return rows
+    columns = [d[0] for d in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
 # ---------------------------------------------------------------------------
@@ -398,15 +396,19 @@ async def main() -> None:
             neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
             neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
             neo4j_pass = os.getenv("NEO4J_PASSWORD", "")
-            driver = Neo4jGD.driver(neo4j_uri, auth=(neo4j_user, neo4j_pass))
-            with driver.session() as neo_session:
-                for etype in ENTITY_TYPES:
-                    result = neo_session.run(
-                        f'MATCH (n:`{workspace}` {{entity_type: "{etype}"}}) '
-                        f"SET n:`{etype}` RETURN COUNT(n) AS count"
-                    ).single()
-                    print(f"  :{etype} → {result['count']} nodes")
-            driver.close()
+            ws = safe_label(workspace)
+            with Neo4jGD.driver(neo4j_uri, auth=(neo4j_user, neo4j_pass)) as driver:
+                with driver.session() as neo_session:
+                    for etype in ENTITY_TYPES:
+                        et = safe_label(etype)
+                        result = neo_session.run(
+                            f"MATCH (n:`{ws}`) WHERE n.entity_type = $etype "
+                            f"SET n:`{et}` RETURN COUNT(n) AS count",
+                            etype=etype,
+                        ).single()
+                        print(f"  :{etype} → {result['count']} nodes")
+        except ImportError:
+            print("  neo4j package not installed — skipping label step")
         except Exception as e:
             print(f"  Warning: could not add labels — {e}")
 

@@ -9,7 +9,19 @@ for each entity before insertion via ainsert_custom_kg().
 from __future__ import annotations
 
 import json
+import re
+import sqlite3
 from typing import Any
+
+# Safe Neo4j label pattern: alphanumeric + underscore, starts with letter/underscore
+_SAFE_LABEL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def safe_label(value: str) -> str:
+    """Validate a string is safe for use as a Neo4j label (no injection)."""
+    if not _SAFE_LABEL_RE.match(value):
+        raise ValueError(f"Unsafe Neo4j label: {value!r}")
+    return value
 
 
 # ---------------------------------------------------------------------------
@@ -234,9 +246,8 @@ def describe_symptom(row: dict[str, Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def build_food_query(conn) -> str:
+def build_food_query(conn: sqlite3.Connection) -> str:
     """Build Food entity query, including nutrition_100g only if it exists."""
-    import sqlite3
     cols = [r[1] for r in conn.execute("PRAGMA table_info(compound_foods)").fetchall()]
     if "nutrition_100g" in cols:
         return (
@@ -246,7 +257,7 @@ def build_food_query(conn) -> str:
     return "SELECT DISTINCT food_name, food_name_scientific, food_group FROM compound_foods"
 
 
-def build_disease_query(conn) -> str:
+def build_disease_query(conn: sqlite3.Connection) -> str:
     """Build Disease entity query, handling missing tables."""
     parts = []
     for table, col in [("target_diseases", "disease_name"), ("chemical_diseases", "disease_name")]:

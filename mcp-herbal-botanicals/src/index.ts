@@ -498,8 +498,17 @@ Requires LightRAG server running (make lightrag-server).`,
       { title: 'Semantic knowledge graph search', readOnlyHint: true },
       async (args) => {
         try {
-          const lightragUrl = process.env.LIGHTRAG_API_URL || 'http://localhost:9621';
-          const response = await fetch(`${lightragUrl}/query`, {
+          const rawUrl = process.env.LIGHTRAG_API_URL || 'http://localhost:9621';
+          let parsedUrl: URL;
+          try {
+            parsedUrl = new URL('/query', rawUrl);
+          } catch {
+            return { content: [{ type: 'text', text: 'Invalid LIGHTRAG_API_URL configuration' }], isError: true };
+          }
+          if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+            return { content: [{ type: 'text', text: 'LIGHTRAG_API_URL must use http or https' }], isError: true };
+          }
+          const response = await fetch(parsedUrl.toString(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -507,6 +516,7 @@ Requires LightRAG server running (make lightrag-server).`,
               mode: args.mode,
               top_k: args.top_k,
             }),
+            signal: AbortSignal.timeout(30_000),
           });
 
           if (!response.ok) {

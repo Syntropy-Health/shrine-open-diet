@@ -157,73 +157,74 @@ def main() -> None:
     load_dotenv(SCRIPT_DIR / f"config_{args.config}.env", override=True)
 
     from neo4j import GraphDatabase
+    from entity_schema import safe_label
 
-    uri = os.getenv("NEO4J_URI")
-    user = os.getenv("NEO4J_USERNAME")
-    password = os.getenv("NEO4J_PASSWORD")
+    uri = os.environ["NEO4J_URI"]
+    user = os.environ["NEO4J_USERNAME"]
+    password = os.environ["NEO4J_PASSWORD"]
     workspace = os.getenv("WORKSPACE", "unified_diet_kg")
+    ws = safe_label(workspace)
 
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    session = driver.session()
+    with GraphDatabase.driver(uri, auth=(user, password)) as driver, driver.session() as session:
+        # Fetch all UNKNOWN entities
+        unknowns = []
+        for r in session.run(
+            f"MATCH (n:`{ws}`) WHERE n.entity_type = $utype "
+            "RETURN n.entity_id AS id ORDER BY n.entity_id",
+            utype="UNKNOWN",
+        ):
+            unknowns.append(r["id"])
 
-    # Fetch all UNKNOWN entities
-    unknowns = []
-    for r in session.run(
-        f'MATCH (n:`{workspace}` {{entity_type: "UNKNOWN"}}) '
-        "RETURN n.entity_id AS id ORDER BY n.entity_id"
-    ):
-        unknowns.append(r["id"])
+        print(f"Found {len(unknowns)} UNKNOWN entities\n")
 
-    print(f"Found {len(unknowns)} UNKNOWN entities\n")
+        # Classify
+        classifications: dict[str, list[str]] = {}
+        updates: list[tuple[str, str, str]] = []
+        for eid in unknowns:
+            etype, desc = classify_entity(eid)
+            updates.append((eid, etype, desc))
+            classifications.setdefault(etype, []).append(eid)
 
-    # Classify
-    classifications: dict[str, list[str]] = {}
-    updates = []
-    for eid in unknowns:
-        etype, desc = classify_entity(eid)
-        updates.append((eid, etype, desc))
-        classifications.setdefault(etype, []).append(eid)
+        # Print summary
+        print("Classification summary:")
+        for etype, items in sorted(classifications.items()):
+            print(f"  {etype:12s}: {len(items):>4} entities")
+            for item in items[:5]:
+                print(f"               - {item}")
+            if len(items) > 5:
+                print(f"               ... and {len(items) - 5} more")
+        print()
 
-    # Print summary
-    print("Classification summary:")
-    for etype, items in sorted(classifications.items()):
-        print(f"  {etype:12s}: {len(items):>4} entities")
-        for item in items[:5]:
-            print(f"               - {item}")
-        if len(items) > 5:
-            print(f"               ... and {len(items) - 5} more")
-    print()
+        if args.dry_run:
+            print("DRY RUN — no changes written")
+            return
 
-    if args.dry_run:
-        print("DRY RUN — no changes written")
-        return
+        # Apply updates
+        updated = 0
+        for eid, etype, desc in updates:
+            et = safe_label(etype)
+            session.run(
+                f"MATCH (n:`{ws}`) WHERE n.entity_id = $eid AND n.entity_type = $old_type "
+                f"SET n.entity_type = $etype, n.description = $desc, n:`{et}` "
+                "RETURN COUNT(n) AS c",
+                eid=eid, old_type="UNKNOWN", etype=etype, desc=desc,
+            )
+            updated += 1
 
-    # Apply updates
-    updated = 0
-    for eid, etype, desc in updates:
+        # Remove the old UNKNOWN label if it was set
         session.run(
-            f'MATCH (n:`{workspace}` {{entity_id: $eid, entity_type: "UNKNOWN"}}) '
-            f"SET n.entity_type = $etype, n.description = $desc, n:`{etype}` "
-            "RETURN COUNT(n) AS c",
-            eid=eid, etype=etype, desc=desc,
+            f"MATCH (n:`{ws}`) WHERE n.entity_type <> $utype REMOVE n:UNKNOWN",
+            utype="UNKNOWN",
         )
-        updated += 1
 
-    # Remove the old UNKNOWN label if it was set
-    session.run(
-        f'MATCH (n:`{workspace}`) WHERE n.entity_type <> "UNKNOWN" REMOVE n:UNKNOWN'
-    )
+        print(f"Updated {updated} entities")
 
-    print(f"Updated {updated} entities")
-
-    # Verify
-    remaining = session.run(
-        f'MATCH (n:`{workspace}` {{entity_type: "UNKNOWN"}}) RETURN COUNT(n) AS c'
-    ).single()["c"]
-    print(f"Remaining UNKNOWN: {remaining}")
-
-    session.close()
-    driver.close()
+        # Verify
+        remaining = session.run(
+            f"MATCH (n:`{ws}`) WHERE n.entity_type = $utype RETURN COUNT(n) AS c",
+            utype="UNKNOWN",
+        ).single()["c"]
+        print(f"Remaining UNKNOWN: {remaining}")
 
 
 if __name__ == "__main__":

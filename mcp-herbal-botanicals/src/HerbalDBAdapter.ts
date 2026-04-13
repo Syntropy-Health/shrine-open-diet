@@ -35,6 +35,16 @@ function parseJsonArray(raw: string | null): string[] {
   }
 }
 
+function parseJsonObject(raw: string | null): Record<string, number> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 export class HerbalDBAdapter {
   private readonly db: Database.Database;
 
@@ -195,7 +205,7 @@ export class HerbalDBAdapter {
     return {
       data: rows.map((r) => ({
         ...r,
-        nutrition_100g: r.nutrition_100g ? JSON.parse(r.nutrition_100g as string) : null,
+        nutrition_100g: parseJsonObject(r.nutrition_100g as string | null),
       })) as CompoundFood[],
       total: countRow.cnt,
       page,

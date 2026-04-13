@@ -40,6 +40,10 @@ function tokenize(name: string): string[] {
     .filter(t => t.length > 1);
 }
 
+function escapeLike(s: string): string {
+  return s.replace(/[%_\\]/g, '\\$&');
+}
+
 export function buildFoodBridge(): { matched: number; unmatched: number; total: number } {
   if (!fs.existsSync(HERBAL_DB_PATH)) {
     console.error(`Herbal DB not found: ${HERBAL_DB_PATH}`);
@@ -145,7 +149,7 @@ export function buildFoodBridge(): { matched: number; unmatched: number; total: 
       // Strategy 5: Token match (all tokens from FooDB name appear in ON name)
       const tokens = tokenize(food_name);
       if (tokens.length > 0) {
-        const pattern = `%${tokens.join('%')}%`;
+        const pattern = `%${tokens.map(escapeLike).join('%')}%`;
         row = likeMatch.get(pattern) as { id: string; name: string; type: string } | undefined;
         if (row) {
           const score = tokens.length / tokenize(row.name).length;
