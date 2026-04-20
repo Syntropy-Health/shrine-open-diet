@@ -22,3 +22,14 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Git worktrees (local checkout branches, not tracked)
+.worktrees/
+
+# Ruff / Python tooling caches
+.ruff_cache/
+
+# Locally-cloned upstream dependencies
+# (graphiti-core is cloned here as a read-only reference; the active
+#  install path is the shrine-diet-bioactivity/graphiti/ PoC directory)
+/graphiti/

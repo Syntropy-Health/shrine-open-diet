@@ -27,3 +27,21 @@ coverage
 .idea
 .vscode
 .DS_Store
+
+# Secrets (never commit)
+.env
+graphiti/.env
+lightrag/.env
+
+# LightRAG local storage (KV + vector DB files, ~54 MB)
+lightrag/rag_storage_local/
+lightrag/rag_storage_production/
+
+# Raw source data dumps (CMAUP, TTD, BATMAN-TCM TSVs, ~115 MB)
+data/cmaup-*.txt
+data/ttd-*.txt
+data/batman-tcm/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
