@@ -111,18 +111,24 @@ canonical slugifier before passing it into `_meta.tenant_id`.
 
 ### Reference implementation
 
-TypeScript reference (`src/clerkOrgMapping.ts` — landing in the enforcement plan):
+TypeScript reference: [`src/clerkOrgMapping.ts`](../src/clerkOrgMapping.ts) —
+ships with the server. Two exports:
 
 ```ts
-export function slugifyClerkOrgId(orgId: string): string {
-  const stripped = orgId.startsWith('org_') ? orgId.slice(4) : orgId;
-  const slug = stripped.toLowerCase().replace(/_/g, '-').slice(0, 60);
-  if (!/^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$/.test(slug)) {
-    throw new Error(`Cannot map Clerk org_id "${orgId}" to a valid tenant slug`);
-  }
-  return slug;
-}
+import { slugifyClerkOrgId, slugifyClerkOrgIdSafe } from 'shrine-diet-bioactivity';
+
+slugifyClerkOrgId('org_2abc123XYZ');            // → '2abc123xyz'
+slugifyClerkOrgId('org_CLINIC_MAYFIELD_01');    // → 'clinic-mayfield-01'
+slugifyClerkOrgId('org_2x');                    // throws (too short after strip)
+
+slugifyClerkOrgIdSafe(null);                    // → null  (no throw)
+slugifyClerkOrgIdSafe('org_bad!char');          // → null  (no throw)
 ```
+
+`slugifyClerkOrgId` throws on any input that would produce an invalid
+slug (empty, too short, leading/trailing hyphen, disallowed char).
+`slugifyClerkOrgIdSafe` is the swallow-errors variant for code paths
+where a missing/invalid org means "anonymous, shared-only".
 
 | Clerk `org_id` | Mapped `tenant_id` |
 |---|---|
@@ -162,20 +168,24 @@ pipelines in `lightrag/ingest_unified.py`).
 
 ## 7. Enforcement — what's live vs planned
 
-**Live today (client-side scoping):**
+**Live today (Phase A1):**
 - `semantic-search` extracts `tenant_id` from `_meta`, validates, and forwards `scope_filter` to `POST /query` on LightRAG.
-- The server also echoes `_tenant` back in `structuredContent` so the agent can audit what scope was applied.
+- `slugifyClerkOrgId` + `slugifyClerkOrgIdSafe` utilities shipped in `src/clerkOrgMapping.ts` with 11 test cases.
+- `lightrag/scope_context.py` — per-request `ContextVar[tuple[str, ...]]` with `("shared",)` default, slug validator.
+- `lightrag/scoped_neo4j_storage.py` — `ScopedNeo4JStorage(Neo4JStorage)` subclass overrides every read method to inject `WHERE n.scope IN $scope_filter` (plus matching predicates on edge / endpoint scope). Writes pass through unchanged.
+- `lightrag/bootstrap_scope.py` — one-shot migration: tags every legacy node + relationship with `scope="shared"`, creates `scope` property indexes on nodes and relationships, idempotent, fails closed if residual `NULL` scope remains. Run via `make lightrag-bootstrap-scope` (add `-dry-run` to preview).
+- Scope and bootstrap unit tests (21 Python + 11 TS).
 
-**Planned (server-side enforcement, `multi-tenant-enforcement-bootstrap` plan):**
-- Tag all ~7,722 legacy Neo4j nodes with `scope="shared"` + create property indexes.
-- `ScopedNeo4JStorage` subclass injects `WHERE n.scope IN $scope_filter` into every read Cypher.
-- FastAPI wrapper `scoped_server.py` replaces the upstream LightRAG binary on port 9621, plumbs `scope_filter` through `contextvars.ContextVar` into storage.
-- Canary CI test: insert sentinel as `tenant:canary-a`, query as `tenant:canary-b`, assert empty.
+**In flight (Phase A2):**
+- `scoped_server.py` — minimal FastAPI wrapper over LightRAG that sets the per-request `ContextVar` from the inbound `scope_filter` field and delegates to `rag.aquery()`.
+- `canary_smoke_test.py` — CI canary: insert sentinel as `tenant:canary-a`, query as `tenant:canary-b`, assert empty.
+- `test_scope_enforcement.py` — live-Neo4j integration test for the `ScopedNeo4JStorage` overrides.
+- Vector-side isolation (NanoVectorDB metadata filter) — currently entity embeddings are shared-scope only, so tenant entity descriptions are not indexed; once tenant ingestion writes embeddings, this gap needs closing.
 
-**Until that lands, treat tenant isolation as best-effort** — the server
-sends `scope_filter`, but the upstream LightRAG binary silently ignores
-unknown fields. Don't put data you wouldn't want another clinic to see in
-the graph yet.
+**Until the wrapper lands**, `scope_filter` travels from MCP → LightRAG
+but the upstream binary silently ignores unknown fields; real filtering
+only starts when `make lightrag-server` boots `scoped_server.py`.
+Don't put clinical-private data in the graph before Phase A2 merges.
 
 ## 8. Tenant-only entity types
 

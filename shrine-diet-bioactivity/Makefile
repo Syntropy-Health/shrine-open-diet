@@ -26,6 +26,8 @@
         food-bridge enrich-nutrition \
         lightrag-setup lightrag-dry-run lightrag-ingest-local lightrag-ingest-prod \
         lightrag-benchmark lightrag-server \
+        lightrag-bootstrap-scope lightrag-bootstrap-scope-dry-run \
+        lightrag-bootstrap-scope-prod lightrag-test-scope \
         graphiti-setup graphiti-dry-run graphiti-ingest graphiti-ingest-direct \
         neo4j-check neo4j-shell neo4j-stats neo4j-status neo4j-watch neo4j-clear \
         embedding-check lms-models clean
@@ -217,6 +219,18 @@ lightrag-metrics-save: ## Save KG metrics report to data/kg-reports/
 
 lightrag-server: ## Start LightRAG API server (local config)
 	cd lightrag && lightrag-server
+
+lightrag-bootstrap-scope-dry-run: ## Preview scope='shared' migration (no writes)
+	cd lightrag && python3 bootstrap_scope.py --config local --dry-run
+
+lightrag-bootstrap-scope: ## Tag legacy Neo4j nodes/edges with scope='shared' and create indexes
+	cd lightrag && python3 bootstrap_scope.py --config local
+
+lightrag-bootstrap-scope-prod: ## Run scope bootstrap against the production Neo4j
+	cd lightrag && python3 bootstrap_scope.py --config production
+
+lightrag-test-scope: ## Run scope unit tests (no live Neo4j required)
+	cd lightrag && python3 -m pytest test_scope_context.py test_bootstrap_scope.py -v
 
 # ─── Graphiti (Legacy) ─────────────────────────────────────
 
