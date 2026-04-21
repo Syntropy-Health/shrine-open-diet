@@ -38,10 +38,17 @@ NEO4J_URI    ?= bolt://metro.proxy.rlwy.net:22971
 NEO4J_USER   ?= neo4j
 NEO4J_PASS   ?= demodemo
 
-# LightRAG / Graphiti subsample limits
-MAX_HERBS     ?= 2376
-MAX_COMPOUNDS ?= 5000
-BATCH_SIZE    ?= 500
+# ─── Prototype KG subsample configuration ───────────────────
+# These MAX_* limits define the reproducible prototype KG shape.
+# Sampling is deterministic (SQL LIMIT with stable ORDER BY) — no RNG
+# is in use today. SUBSAMPLE_SEED is reserved for future random sampling
+# and plumbed through to ingest_unified.py via env.
+MAX_HERBS        ?= 2376
+MAX_COMPOUNDS    ?= 5000
+MAX_FOODS        ?= 0
+MAX_RELATIONSHIPS?= 50000
+BATCH_SIZE       ?= 500
+SUBSAMPLE_SEED   ?= 42
 
 help: ## Show all targets with descriptions
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -205,6 +212,19 @@ lightrag-dry-run: ## Dry-run ingestion — print entity/relationship counts (no 
 
 lightrag-ingest-local: ## Ingest unified KG into LightRAG (local Ollama embeddings)
 	cd lightrag && python3 ingest_unified.py --config local --batch-size $(BATCH_SIZE)
+
+lightrag-ingest-prototype: ## Reproduce the prototype KG with the exact subsample config
+	cd lightrag && SUBSAMPLE_SEED=$(SUBSAMPLE_SEED) python3 ingest_unified.py \
+		--config local \
+		--batch-size $(BATCH_SIZE) \
+		--max-herbs $(MAX_HERBS) \
+		--max-compounds $(MAX_COMPOUNDS) \
+		$(if $(filter-out 0,$(MAX_FOODS)),--max-foods $(MAX_FOODS),) \
+		--max-relationships $(MAX_RELATIONSHIPS)
+	@echo "✅ Prototype ingest complete. Config:"
+	@echo "   MAX_HERBS=$(MAX_HERBS) MAX_COMPOUNDS=$(MAX_COMPOUNDS)"
+	@echo "   MAX_FOODS=$(MAX_FOODS) MAX_RELATIONSHIPS=$(MAX_RELATIONSHIPS)"
+	@echo "   SUBSAMPLE_SEED=$(SUBSAMPLE_SEED) BATCH_SIZE=$(BATCH_SIZE)"
 
 lightrag-ingest-prod: ## Ingest unified KG into LightRAG (production API embeddings)
 	cd lightrag && python3 ingest_unified.py --config production --batch-size 200

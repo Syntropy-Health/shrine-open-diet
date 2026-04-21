@@ -29,17 +29,21 @@ def safe_label(value: str) -> str:
 # ---------------------------------------------------------------------------
 
 ENTITY_TYPES = {
+    # NOTE: every non-None query includes ``ORDER BY <pk>`` so ``LIMIT N``
+    # subsampling is reproducible across rebuilds of the underlying
+    # SQLite DB. See ``lightrag-thin-adapter-pivot-v2.plan.md`` §
+    # "Subsample reproducibility".
     "Herb": {
         "source_table": "herbs",
         "id_field": "id",
         "name_field": "scientific_name",
-        "query": "SELECT * FROM herbs",
+        "query": "SELECT * FROM herbs ORDER BY id",
     },
     "Compound": {
         "source_table": "compounds",
         "id_field": "id",
         "name_field": "name",
-        "query": "SELECT * FROM compounds",
+        "query": "SELECT * FROM compounds ORDER BY id",
     },
     "Food": {
         "source_table": "compound_foods",
@@ -53,7 +57,7 @@ ENTITY_TYPES = {
         "source_table": "targets",
         "id_field": "id",
         "name_field": "name",
-        "query": "SELECT id, name, uniprot_id, gene_symbol, druggability_status FROM targets",
+        "query": "SELECT id, name, uniprot_id, gene_symbol, druggability_status FROM targets ORDER BY id",
     },
     "Disease": {
         "source_table": None,  # aggregated from multiple tables
@@ -66,7 +70,7 @@ ENTITY_TYPES = {
         "source_table": "symptoms",
         "id_field": "id",
         "name_field": "name",
-        "query": "SELECT id, name, symptom_type, description FROM symptoms",
+        "query": "SELECT id, name, symptom_type, description FROM symptoms ORDER BY id",
     },
     # -- Tenant entity types (clinical practice layer) --
     # These have no SQLite source — ingested via tenant API (Phase 4).
@@ -111,7 +115,8 @@ RELATIONSHIP_TYPES = {
             "hc.plant_part, hc.concentration_low_ppm, hc.concentration_high_ppm "
             "FROM herb_compounds hc "
             "JOIN herbs h ON hc.herb_id = h.id "
-            "JOIN compounds c ON hc.compound_id = c.id"
+            "JOIN compounds c ON hc.compound_id = c.id "
+            "ORDER BY hc.herb_id, hc.compound_id"
         ),
     },
     "FOUND_IN_FOOD": {
@@ -122,7 +127,8 @@ RELATIONSHIP_TYPES = {
             "SELECT c.name as src_name, cf.food_name as tgt_name, "
             "cf.content_value, cf.content_unit, cf.food_part "
             "FROM compound_foods cf "
-            "JOIN compounds c ON cf.compound_id = c.id"
+            "JOIN compounds c ON cf.compound_id = c.id "
+            "ORDER BY cf.compound_id, cf.food_name"
         ),
     },
     "TARGETS_PROTEIN": {
@@ -134,7 +140,8 @@ RELATIONSHIP_TYPES = {
             "ct.activity_value, ct.activity_type "
             "FROM compound_targets ct "
             "JOIN compounds c ON ct.compound_id = c.id "
-            "JOIN targets t ON ct.target_id = t.id"
+            "JOIN targets t ON ct.target_id = t.id "
+            "ORDER BY ct.compound_id, ct.target_id"
         ),
     },
     "ASSOCIATED_WITH_DISEASE": {
@@ -145,7 +152,8 @@ RELATIONSHIP_TYPES = {
             "SELECT t.name as src_name, td.disease_name as tgt_name, "
             "td.evidence_layer as evidence "
             "FROM target_diseases td "
-            "JOIN targets t ON td.target_id = t.id"
+            "JOIN targets t ON td.target_id = t.id "
+            "ORDER BY td.target_id, td.disease_name"
         ),
     },
     "TREATS_SYMPTOM": {
@@ -156,7 +164,8 @@ RELATIONSHIP_TYPES = {
             "SELECT h.scientific_name as src_name, s.name as tgt_name "
             "FROM herb_symptoms hs "
             "JOIN herbs h ON hs.herb_id = h.id "
-            "JOIN symptoms s ON hs.symptom_id = s.id"
+            "JOIN symptoms s ON hs.symptom_id = s.id "
+            "ORDER BY hs.herb_id, hs.symptom_id"
         ),
     },
     # -- Tenant relationship types (clinical practice layer) --
@@ -389,18 +398,28 @@ def describe_biomarker(row: dict[str, Any]) -> str:
 
 
 def build_food_query(conn: sqlite3.Connection) -> str:
-    """Build Food entity query, including nutrition_100g only if it exists."""
+    """Build Food entity query, including nutrition_100g only if it exists.
+
+    Results are sorted by ``food_name`` so ``LIMIT N`` is reproducible.
+    """
     cols = [r[1] for r in conn.execute("PRAGMA table_info(compound_foods)").fetchall()]
     if "nutrition_100g" in cols:
         return (
             "SELECT DISTINCT food_name, food_name_scientific, food_group, "
-            "nutrition_100g FROM compound_foods"
+            "nutrition_100g FROM compound_foods ORDER BY food_name"
         )
-    return "SELECT DISTINCT food_name, food_name_scientific, food_group FROM compound_foods"
+    return (
+        "SELECT DISTINCT food_name, food_name_scientific, food_group "
+        "FROM compound_foods ORDER BY food_name"
+    )
 
 
 def build_disease_query(conn: sqlite3.Connection) -> str:
-    """Build Disease entity query, handling missing tables."""
+    """Build Disease entity query, handling missing tables.
+
+    The outer query sorts by ``disease_name`` so ``LIMIT N`` is
+    reproducible even though the inner UNION has no intrinsic order.
+    """
     parts = []
     for table, col in [("target_diseases", "disease_name"), ("chemical_diseases", "disease_name")]:
         exists = conn.execute(
@@ -410,7 +429,8 @@ def build_disease_query(conn: sqlite3.Connection) -> str:
             parts.append(f"SELECT DISTINCT {col} AS disease_name FROM {table}")
     if not parts:
         return "SELECT 'none' AS disease_name WHERE 0"
-    return " UNION ".join(parts)
+    inner = " UNION ".join(parts)
+    return f"SELECT * FROM ({inner}) ORDER BY disease_name"
 
 
 QUERY_BUILDERS = {
