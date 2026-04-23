@@ -16,7 +16,14 @@
   "files": [
     "build"
   ],
-  "keywords": ["mcp", "diet", "bioactivity", "phytochemical", "nutrition", "knowledge-graph"],
+  "keywords": [
+    "mcp",
+    "diet",
+    "bioactivity",
+    "phytochemical",
+    "nutrition",
+    "knowledge-graph"
+  ],
   "author": "Syntropy Health",
   "license": "ISC",
   "description": "Thin-adapter MCP over the scoped LightRAG wrapper — 5 domain-agnostic tools for scope-filtered semantic search, graph traversal, and tenant-private knowledge ingestion.",
@@ -28,7 +35,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.15.29",
-    "@vitest/coverage-v8": "^4.0.18",
+    "@vitest/coverage-v8": "^4.1.5",
     "tsx": "^4.19.2",
     "typescript": "^5.8.3",
     "vitest": "^4.0.18"
