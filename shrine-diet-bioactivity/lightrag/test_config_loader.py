@@ -1,6 +1,6 @@
 import pytest
 from pathlib import Path
-from config_loader import load_data_sources, load_ingest_params, ConfigError
+from config_loader import load_data_sources, load_ingest_params, ConfigError  # type: ignore[import-not-found]
 
 
 def test_loads_data_sources():

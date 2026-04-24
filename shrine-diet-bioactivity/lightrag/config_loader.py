@@ -3,7 +3,7 @@ Same shape as shrine-diet-bioactivity/src/config.ts for language parity."""
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, TypeVar
 
 import yaml
 from pydantic import BaseModel, Field, ValidationError
@@ -68,7 +68,10 @@ DEFAULT_DATA = _ROOT / "config" / "data_sources.yaml"
 DEFAULT_PARAMS = _ROOT / "config" / "ingest_params.yaml"
 
 
-def _load(path: Path, model: type[BaseModel]):
+T = TypeVar("T", bound=BaseModel)
+
+
+def _load(path: Path, model: type[T]) -> T:
     try:
         raw = path.read_text()
     except OSError as e:
