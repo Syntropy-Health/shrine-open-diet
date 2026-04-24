@@ -202,8 +202,15 @@ RELATIONSHIP_TYPES = {
     },
     "CONTRAINDICATES": {
         "source_table": None,
-        "src_type": "Compound",  # also Intervention
-        "tgt_type": "Disease",   # also Symptom
+        # Polymorphic: covers both the legacy tenant stub (Compound/Intervention
+        # → Disease/Symptom) and the HDI-scoped case (Herb → Condition/
+        # PatientState) ingested from hdi_safe_50.json + MSK/NIH ODS.
+        "src_type": "Herb|Compound|Intervention",
+        "tgt_type": "Condition|Disease|Symptom|PatientState",
+        "description": (
+            "Contraindication: substance should not be used in the target state "
+            "(pregnancy, hepatic/renal impairment, pediatric, disease overlap, etc.)"
+        ),
         "query": None,
     },
     "SYNERGIZES_WITH": {
@@ -211,6 +218,12 @@ RELATIONSHIP_TYPES = {
         "src_type": "Compound",  # also Intervention → Intervention
         "tgt_type": "Compound",
         "query": None,
+    },
+    "INTERACTS_WITH": {
+        "source_table": None,  # curated via hdi_safe_50.json, ingested by ingest_hdi.py
+        "src_type": "Herb",
+        "tgt_type": "Drug",
+        "description": "Herb-drug interaction (HDI) from NIH ODS / MSK About Herbs / LiverTox",
     },
 }
 
@@ -390,6 +403,28 @@ def describe_biomarker(row: dict[str, Any]) -> str:
     if row.get("target_gene"):
         parts.append(f"Gene: {row['target_gene']}")
     return ". ".join(parts)
+
+
+def describe_interacts_with(row: dict[str, Any]) -> str:
+    """Generate a description for a Herb → Drug INTERACTS_WITH edge (HDI)."""
+    return (
+        f"{row['herb_name']} interacts with {row['drug_name']} "
+        f"({row['severity']} severity; mechanism class: {row['mechanism_class']}; "
+        f"evidence: {row['evidence_tier']})"
+    )
+
+
+def describe_contraindicates(row: dict[str, Any]) -> str:
+    """Generate a description for a CONTRAINDICATES edge.
+
+    Supports both the legacy Compound→Disease tenant stub and the
+    HDI-scoped Herb→Condition case. Uses keyword fallback to stay
+    polymorphic without branching on edge direction.
+    """
+    src = row.get("herb_name") or row.get("compound_name") or row.get("intervention_name", "substance")
+    tgt = row.get("condition") or row.get("disease_name") or row.get("symptom_name", "state")
+    severity = row.get("severity", "unspecified")
+    return f"{src} is contraindicated in {tgt} ({severity})"
 
 
 # ---------------------------------------------------------------------------
