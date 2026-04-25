@@ -39,6 +39,10 @@ def default_llm_config(response_format: type | None = None) -> dict[str, Any]:
         "api_key": os.environ.get(cfg["api_key_env"], "test-key-placeholder"),
         "extra_body": {"seed": 42},
     }
+    # base_url is required for OpenAI-compatible providers like OpenRouter,
+    # Together.ai, etc. Skip when targeting native OpenAI (no base_url in YAML).
+    if cfg.get("base_url"):
+        entry["base_url"] = cfg["base_url"]
     llm_cfg: dict[str, Any] = {
         "config_list": [entry],
         "cache_seed": 42,
