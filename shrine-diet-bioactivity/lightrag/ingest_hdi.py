@@ -103,23 +103,30 @@ def build_payload(hdis: list[dict[str, Any]], severity_weights: dict[str, float]
         )
 
     entities = list(herbs.values()) + list(drugs.values())
-    # The payload chunk is required so source_id mapping resolves cleanly.
+    # The payload chunk is required so source_id mapping resolves
+    # cleanly. file_path is the surviving attribution channel — see
+    # ingest_unified.ingest_batch for the same convention.
     chunk_content = (
         f"HDI-Safe 50 reference set — {len(relationships)} curated herb-drug "
         f"interactions across mechanism classes "
         f"({sorted({r['mechanism_class'] for r in relationships})})."
     )
+    file_path = "hdi-safe-50"
     return {
         "chunks": [
             {
                 "content": chunk_content,
                 "source_id": "hdi-safe-50",
-                "file_path": "research-journal/shared/hdi_safe_50.json",
+                "file_path": file_path,
             }
         ],
-        "entities": [{**e, "source_id": "hdi-safe-50"} for e in entities],
+        "entities": [
+            {**e, "source_id": "hdi-safe-50", "file_path": file_path}
+            for e in entities
+        ],
         "relationships": [
-            {**r, "source_id": "hdi-safe-50"} for r in relationships
+            {**r, "source_id": "hdi-safe-50", "file_path": file_path}
+            for r in relationships
         ],
     }
 

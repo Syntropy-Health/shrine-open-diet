@@ -224,8 +224,16 @@ lightrag-setup: ## Install LightRAG Python dependencies
 lightrag-dry-run: ## Dry-run ingestion — print entity/relationship counts (no writes)
 	cd lightrag && python3 ingest_unified.py --config local --dry-run
 
-lightrag-ingest-local: ## Ingest unified KG into LightRAG (local Ollama embeddings)
+lightrag-ingest-local: ## Ingest unified KG into LightRAG (local Ollama embeddings, full-scale)
 	cd lightrag && python3 ingest_unified.py --config local --batch-size $(BATCH_SIZE)
+
+lightrag-ingest-sampled: ## Sampled ingest — proves Duke+SymMap+HERB2+HDI wiring in ~30-60min on Ollama
+	cd lightrag && python3 -u ingest_unified.py --config local \
+		--batch-size 200 \
+		--max-herbs 500 --max-compounds 1000 --max-foods 200 \
+		--max-relationships 5000 \
+		--max-extra-per-table 1000 \
+		--herb2-experimental-cap 1000
 
 lightrag-ingest-prototype: ## Reproduce the prototype KG with the exact subsample config
 	cd lightrag && SUBSAMPLE_SEED=$(SUBSAMPLE_SEED) python3 ingest_unified.py \

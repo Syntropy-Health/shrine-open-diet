@@ -199,19 +199,26 @@ async def ingest_batch(
         f"Sample entities: {', '.join(entity_names)}"
     )
 
+    # Both source_id and file_path are the only attribution channels
+    # LightRAG passes through to Neo4j. source_id gets rewritten to the
+    # MD5-hashed chunk_id, but file_path is preserved verbatim — we use
+    # it to encode the upstream data source (``symmap``, ``herb2``,
+    # ``duke``, ``hdi-safe-50``) so downstream queries can attribute.
     custom_kg = {
         "chunks": [
             {
                 "content": chunk_content,
                 "source_id": source_id,
-                "file_path": str(DB_PATH),
+                "file_path": source_prefix,
             }
         ],
         "entities": [
-            {**e, "source_id": source_id} for e in entities
+            {**e, "source_id": source_id, "file_path": source_prefix}
+            for e in entities
         ],
         "relationships": [
-            {**r, "source_id": source_id} for r in relationships
+            {**r, "source_id": source_id, "file_path": source_prefix}
+            for r in relationships
         ],
     }
 
@@ -255,6 +262,12 @@ async def main() -> None:
         "--skip-extra-sources",
         action="store_true",
         help="Skip SymMap + HERB 2.0 (legacy Duke-only ingest)",
+    )
+    parser.add_argument(
+        "--max-extra-per-table",
+        type=int,
+        default=None,
+        help="Max rows to extract per SymMap/HERB 2.0 entity table (default: unlimited)",
     )
     args = parser.parse_args()
 
@@ -307,7 +320,9 @@ async def main() -> None:
         for adapter in EXTRA_ENTITY_ADAPTERS:
             label = f"{adapter['source']}/{adapter['table']}"
             print(f"Extracting {label} ({adapter['entity_type']}) entities...")
-            extras = extract_extra_entities(conn, adapter, max_count=None)
+            extras = extract_extra_entities(
+                conn, adapter, max_count=args.max_extra_per_table
+            )
             bucket = all_entities.setdefault(adapter["entity_type"], [])
             # Dedupe across sources by entity_name — first occurrence wins,
             # so Duke entities (loaded first) keep their richer descriptions.
