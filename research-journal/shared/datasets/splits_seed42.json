@@ -1,0 +1,62 @@
+{
+  "seed": 42,
+  "benchmark_version": "v1",
+  "ratios": [
+    0.6,
+    0.2,
+    0.2
+  ],
+  "leakage_guard": {
+    "enforced": false,
+    "overlapping_test_ids": [
+      "case-nutrition-008-probiotics-ibs"
+    ],
+    "note": "v1 benchmark (N=40) cannot guarantee entity disjointness \u2014 multiple scenarios share primary entities (e.g. St. John's Wort across HDI cases). Generalization claims must be limited to symptom \u00d7 intervention combinations, not unseen entities. v2 (N>=200) is expected to satisfy the guard."
+  },
+  "train_ids": [
+    "case-herbal-006-peppermint-ibs",
+    "case-herbal-002-turmeric-osteoarthritis",
+    "case-herbal-003-valerian-insomnia",
+    "case-herbal-008-milk-thistle-hepatoprotection",
+    "case-herbal-007-ashwagandha-stress",
+    "case-herbal-004-echinacea-uri",
+    "case-hdi-004-licorice-furosemide",
+    "case-hdi-002-sjw-warfarin",
+    "case-hdi-003-grapefruit-simvastatin",
+    "case-hdi-001-sjw-sertraline",
+    "case-hdi-006-ginseng-warfarin",
+    "case-hdi-007-green-tea-iron",
+    "case-nutrition-009-mediterranean-t2d",
+    "case-nutrition-010-dash-hypertension",
+    "case-nutrition-004-zinc-uri",
+    "case-nutrition-001-vitamin-d-deficiency",
+    "case-nutrition-007-fiber-constipation",
+    "case-nutrition-003-magnesium-migraine",
+    "case-tcm-010-danggui-buxue-tang-anemia",
+    "case-tcm-008-banlangen-uri",
+    "case-tcm-007-danshen-xiongbi",
+    "case-tcm-002-huangqi-fatigue",
+    "case-tcm-004-wuweizi-stress",
+    "case-tcm-001-danggui-menopause"
+  ],
+  "val_ids": [
+    "case-herbal-009-garlic-hyperlipidemia",
+    "case-herbal-010-licorice-peptic-ulcer",
+    "case-hdi-009-kava-alprazolam",
+    "case-hdi-008-garlic-saquinavir",
+    "case-nutrition-006-iron-anemia",
+    "case-nutrition-002-omega-3-cardiovascular",
+    "case-tcm-003-shengma-hot-flashes"
+  ],
+  "test_ids": [
+    "case-herbal-001-ginger-cinv",
+    "case-herbal-005-saw-palmetto-bph",
+    "case-hdi-010-yohimbe-clonidine",
+    "case-hdi-005-ginkgo-aspirin",
+    "case-nutrition-005-folate-ntd",
+    "case-nutrition-008-probiotics-ibs",
+    "case-tcm-005-mahuang-asthma",
+    "case-tcm-009-gouqi-tonic",
+    "case-tcm-006-huanglian-xiaoke"
+  ]
+}
