@@ -29,6 +29,10 @@ Thumbs.db
 # Ruff / Python tooling caches
 .ruff_cache/
 
+# diskcache memoization (LLM-response cache keyed by seed)
+.cache/
+**/.cache/
+
 # Locally-cloned upstream dependencies
 # (graphiti-core is cloned here as a read-only reference; the active
 #  install path is the shrine-diet-bioactivity/graphiti/ PoC directory)
