@@ -2,7 +2,7 @@
 Configuration for Graphiti KG integration.
 
 Connects to:
-- Neo4j on Railway (or local Docker)
+- Neo4j (Aura cloud or local Docker — credentials via .env)
 - Local embedding server (LM Studio) for zero-cost embeddings
 - Local or cloud LLM for entity extraction
 

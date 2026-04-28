@@ -14,11 +14,10 @@
 #   - Python 3.10+ (for LightRAG)
 #   - Ollama running on :11434 with bge-m3 model (for local LightRAG)
 #
-# Neo4j (Railway):
-#   Bolt proxy:  bolt://metro.proxy.rlwy.net:22971
-#   Credentials: neo4j / demodemo
-#   View in Neo4j Desktop: connect to bolt://metro.proxy.rlwy.net:22971
-#   Or use: make neo4j-shell
+# Neo4j (Aura cloud):
+#   URI / user / password are read from .env (see .env.template).
+#   Visualize via the Aura console (https://console.neo4j.io) or
+#   point Neo4j Desktop at $$NEO4J_URI. Or use: make neo4j-shell.
 # ─────────────────────────────────────────────────────────────
 
 .PHONY: help setup download build migrate download-cmaup download-ttd \
@@ -36,10 +35,13 @@
         embedding-check lms-models clean \
         eval-smoke eval-run eval-report eval-embed-ingest
 
-# Default Neo4j connection (Railway proxy)
-NEO4J_URI    ?= bolt://metro.proxy.rlwy.net:22971
+# Neo4j connection — populated from .env. Set NEO4J_URI / NEO4J_USERNAME /
+# NEO4J_PASSWORD in your local .env (see .env.template). The make targets
+# that hit Neo4j source .env before the recipe body, so leaving these as
+# empty defaults keeps real credentials out of git history.
+NEO4J_URI    ?=
 NEO4J_USER   ?= neo4j
-NEO4J_PASS   ?= demodemo
+NEO4J_PASS   ?=
 
 # ─── Prototype KG subsample configuration ───────────────────
 # These MAX_* limits define the reproducible prototype KG shape.
@@ -146,7 +148,7 @@ total_r = s.run('MATCH ()-[r]->() RETURN COUNT(r) AS c').single()['c']; \
 print(f'Total: {total_n} nodes, {total_r} relationships'); \
 s.close(); d.close()"
 
-neo4j-shell: ## Open interactive Cypher shell against Railway Neo4j
+neo4j-shell: ## Open interactive Cypher shell against Neo4j (Aura via .env)
 	@echo "Connecting to $(NEO4J_URI) ..."
 	@docker run --rm -it neo4j:5-community cypher-shell \
 		-a $(NEO4J_URI) -u $(NEO4J_USER) -p $(NEO4J_PASS) \
