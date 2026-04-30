@@ -152,13 +152,20 @@ async def _build_scoped_rag() -> Any:
         llm_func = ollama_model_complete
         embed_func = _embed_ollama
 
+    # llm_model_kwargs is forwarded as **kwargs to llm_func; keep it Ollama-only.
+    # OpenAI binding closures already capture base_url/api_key, so leaking a
+    # 'host' kwarg into AsyncCompletions.parse() raises TypeError. Bug-2026-04-30.
+    llm_kwargs: dict[str, Any] = {}
+    if llm_binding == "ollama":
+        llm_kwargs = {"host": llm_host, "options": {"num_ctx": 32768}}
+
     rag = LightRAG(
         working_dir=working_dir,
         workspace=workspace,
         graph_storage="ScopedNeo4JStorage",
         llm_model_func=llm_func,
         llm_model_name=llm_model,
-        llm_model_kwargs={"host": llm_host},
+        llm_model_kwargs=llm_kwargs,
         embedding_func=EmbeddingFunc(
             embedding_dim=embedding_dim,
             max_token_size=8192,
@@ -244,22 +251,85 @@ async def _startup() -> None:
     _config_name = _load_config()
     _preflight_scope_check()
     _rag = await _build_scoped_rag()
+    # Build a dedicated async Neo4j driver for typed endpoints (DI source).
+    # Decoupled from LightRAG's internal driver so endpoint correctness
+    # doesn't depend on LightRAG's storage internals.
+    await _init_neo4j_driver()
     logger.info("scoped_server booted (config=%s)", _config_name)
 
 
 @app.on_event("shutdown")
 async def _shutdown() -> None:
-    global _rag
+    global _rag, _neo4j_driver
     if _rag is not None:
         try:
             await _rag.finalize_storages()
         except Exception as e:  # noqa: BLE001 - best-effort cleanup
             logger.warning("finalize_storages failed: %s", e)
         _rag = None
+    if _neo4j_driver is not None:
+        try:
+            await _neo4j_driver.close()
+        except Exception as e:  # noqa: BLE001
+            logger.warning("neo4j driver close failed: %s", e)
+        _neo4j_driver = None
+
+
+# ─── Neo4j async driver — DI source for typed endpoints ──────────────────
+#
+# The driver is created at startup, validated with `RETURN 1`, and reused
+# across requests. /health proxies its liveness — a 200 here means the
+# scoped server can actually reach Aura, not just that FastAPI booted.
+
+_neo4j_driver: Any = None
+
+
+async def _init_neo4j_driver() -> None:
+    """Build + validate the async Neo4j driver. Fail-fast on startup if
+    Aura is unreachable."""
+    global _neo4j_driver
+    from neo4j import AsyncGraphDatabase
+
+    uri = os.environ["NEO4J_URI"]
+    user = os.environ["NEO4J_USERNAME"]
+    pwd = os.environ["NEO4J_PASSWORD"]
+    _neo4j_driver = AsyncGraphDatabase.driver(uri, auth=(user, pwd))
+
+    # Validate immediately so a bad cred / network blocks startup.
+    async with _neo4j_driver.session() as s:
+        result = await s.run("RETURN 1 AS ok")
+        record = await result.single()
+        if record is None or record["ok"] != 1:
+            raise RuntimeError("Aura ping failed: RETURN 1 did not return 1")
+    logger.info("Neo4j driver validated (uri=%s)", uri.split("@")[-1])
+
+
+def _get_driver() -> Any:
+    """DI accessor for typed endpoints. Tests monkeypatch this; production
+    code never accesses ``_neo4j_driver`` directly."""
+    if _neo4j_driver is None:
+        raise HTTPException(status_code=503, detail="Neo4j driver not initialized")
+    return _neo4j_driver
+
+
+async def _ping_driver() -> bool:
+    """Liveness probe — used by /health to confirm Aura is still reachable."""
+    if _neo4j_driver is None:
+        return False
+    try:
+        async with _neo4j_driver.session() as s:
+            result = await s.run("RETURN 1 AS ok")
+            rec = await result.single()
+            return rec is not None and rec["ok"] == 1
+    except Exception:  # noqa: BLE001
+        return False
 
 
 @app.get("/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
+    """Health check — proxies Aura liveness so green ⇒ end-to-end reachable."""
+    if not await _ping_driver():
+        raise HTTPException(status_code=503, detail="Neo4j driver not healthy")
     return HealthResponse(status="ok", config=_config_name)
 
 
@@ -289,19 +359,8 @@ ALLOWED_EDGE_TYPES: set[str] = {
 }
 
 
-def _get_driver() -> Any:
-    """Return the underlying neo4j driver from the booted LightRAG storage.
-
-    The driver is owned by ScopedNeo4JStorage; we just borrow it for the
-    typed endpoints. Tests monkeypatch this function to inject a fake.
-    """
-    if _rag is None:
-        raise HTTPException(status_code=503, detail="LightRAG not initialized")
-    storage = getattr(_rag, "chunk_entity_relation_graph", None)
-    driver = getattr(storage, "_driver", None) if storage else None
-    if driver is None:
-        raise HTTPException(status_code=503, detail="Neo4j driver unavailable")
-    return driver
+# _get_driver is defined earlier (above /health) and uses the dedicated
+# async driver initialized in startup. Don't re-define here.
 
 
 def _safe_label(name: str) -> str:
@@ -459,14 +518,14 @@ async def traverse(request: TraverseRequest) -> dict[str, Any]:
         body=request.model_dump(),
     ) as row:
         driver = _get_driver()
-        with driver.session() as s:
-            result = s.run(
+        async with driver.session() as s:
+            result = await s.run(
                 cypher,
                 seed=request.seed,
                 scope_filter=request.scope_filter,
                 top_k=request.top_k,
             )
-            records = list(result)
+            records = [r async for r in result]
 
         # Build chains response. depth=1 → single edge per chain;
         # depth=2 → two edges per chain.
@@ -546,14 +605,14 @@ async def hdi_check(request: HDICheckRequest) -> dict[str, Any]:
         body={"drug": request.drug, "herb": request.herb},
     ) as row:
         driver = _get_driver()
-        with driver.session() as s:
-            result = s.run(
+        async with driver.session() as s:
+            result = await s.run(
                 cypher,
                 drug=request.drug,
                 herb=request.herb,
                 scope_filter=request.scope_filter,
             )
-            records = list(result)
+            records = [r async for r in result]
 
     if not records:
         return {"found": False, "severity": None, "mechanism_class": None,
@@ -607,11 +666,11 @@ async def bilingual_term(request: BilingualTermRequest) -> dict[str, Any]:
         body={"term": request.term},
     ) as row:
         driver = _get_driver()
-        with driver.session() as s:
-            result = s.run(
+        async with driver.session() as s:
+            result = await s.run(
                 cypher, term=request.term, scope_filter=request.scope_filter,
             )
-            records = list(result)
+            records = [r async for r in result]
 
     if not records:
         return {"english": None, "chinese": None, "pinyin": None,

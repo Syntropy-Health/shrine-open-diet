@@ -231,20 +231,32 @@ def main() -> None:
         return
 
     import uvicorn
+    from starlette.applications import Starlette
+    from starlette.middleware import Middleware
+    from starlette.routing import Mount
 
     from .auth import AuthMiddleware
 
     if transport == "streamable-http":
-        app = server.streamable_http_app()
+        inner_app = server.streamable_http_app()
     elif transport == "sse":
-        app = server.sse_app()
+        inner_app = server.sse_app()
     else:
         server.run(transport=transport)
         return
 
-    app.add_middleware(AuthMiddleware)
+    # Wrap with an OUTER Starlette app so the middleware runs before any
+    # routing in the inner FastMCP app. Calling app.add_middleware() on the
+    # inner app after it's been built is silently ignored when the app's
+    # middleware stack has already been finalized — caught by an e2e test
+    # that saw 200 instead of 401 from /mcp without bearer.
+    guarded_app = Starlette(
+        routes=[Mount("/", app=inner_app)],
+        middleware=[Middleware(AuthMiddleware)],
+    )
+
     uvicorn.run(
-        app,
+        guarded_app,
         host=server.settings.host,
         port=server.settings.port,
         log_level="info",

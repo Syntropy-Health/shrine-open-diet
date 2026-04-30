@@ -16,21 +16,28 @@ from fastapi.testclient import TestClient
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path):
-    """TestClient with mocked driver + audit + scope-preflight."""
+    """TestClient with mocked async driver + audit + scope-preflight.
+
+    The endpoints under test use ``async with driver.session() as s:`` and
+    ``await s.run(...)`` — mocks must mirror the async-context-manager
+    protocol (``__aenter__`` / ``__aexit__`` / ``__aiter__``).
+    """
+    from unittest.mock import AsyncMock
+
     import scoped_server as ss
     from audit_log import AuditLog
 
     fake_session = MagicMock()
-    fake_session.run = MagicMock()
-    fake_session.__enter__ = MagicMock(return_value=fake_session)
-    fake_session.__exit__ = MagicMock(return_value=False)
+    fake_session.run = AsyncMock()
+    fake_session.__aenter__ = AsyncMock(return_value=fake_session)
+    fake_session.__aexit__ = AsyncMock(return_value=False)
 
     fake_driver = MagicMock()
     fake_driver.session = MagicMock(return_value=fake_session)
+    fake_driver.close = AsyncMock()
 
     async def _fake_build():
         rag = MagicMock()
-        rag.finalize_storages = MagicMock(return_value=None)
 
         async def _noop_finalize():
             return None
@@ -38,8 +45,17 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path):
         rag.finalize_storages = _noop_finalize
         return rag
 
+    async def _fake_init_driver():
+        # Skip real Aura init; install our fake.
+        ss._neo4j_driver = fake_driver
+
+    async def _fake_ping():
+        return True
+
     monkeypatch.setattr(ss, "_preflight_scope_check", lambda: None)
     monkeypatch.setattr(ss, "_build_scoped_rag", _fake_build)
+    monkeypatch.setattr(ss, "_init_neo4j_driver", _fake_init_driver)
+    monkeypatch.setattr(ss, "_ping_driver", _fake_ping)
     monkeypatch.setattr(ss, "_audit", AuditLog(db_path=tmp_path / "audit.db"))
     monkeypatch.setattr(ss, "_get_driver", lambda: fake_driver)
 
@@ -49,12 +65,18 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path):
         yield c
 
 
-def _result_with_records(records: list[dict[str, Any]]) -> MagicMock:
-    """Build a synchronous neo4j-like Result that yields the given records."""
+def _result_with_records(records: list[dict[str, Any]]):
+    """Build an async neo4j Result that yields the given records under
+    ``[r async for r in result]`` iteration."""
+    from unittest.mock import AsyncMock
+
+    async def _aiter():
+        for d in records:
+            yield _record(d)
+
     res = MagicMock()
-    res.__iter__ = lambda self: iter(
-        [_record(d) for d in records]
-    )
+    res.__aiter__ = lambda self: _aiter()
+    res.single = AsyncMock(return_value=_record(records[0]) if records else None)
     return res
 
 
