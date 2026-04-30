@@ -218,15 +218,37 @@ def main() -> None:
     server.settings.host = os.environ.get("MCP_HOST", "0.0.0.0")
     server.settings.port = int(os.environ.get("MCP_PORT", "8080"))
 
-    # FastMCP's TransportSecuritySettings defaults to localhost-only allowed
-    # hosts/origins (DNS-rebinding protection). When deployed behind Railway
-    # or any other public host, add the deployed domain via env vars.
-    # Examples:
-    #   MCP_ALLOWED_HOSTS=kg-mcp-test.up.railway.app,*.up.railway.app
-    #   MCP_ALLOWED_ORIGINS=https://kg-mcp-test.up.railway.app
     # transport_security was already configured at FastMCP construction
     # (see _build_transport_security above) — no post-hoc mutation needed.
-    server.run(transport=transport)
+
+    # Auth layer: wrap FastMCP's HTTP app with Bearer-token middleware.
+    # /health stays public (Railway healthcheck); /mcp* requires either
+    # MCP_API_KEY or a Clerk JWT with email in MCP_ADMIN_EMAILS.
+    # Set MCP_AUTH_DISABLED=true to bypass — local dev only.
+    auth_disabled = os.environ.get("MCP_AUTH_DISABLED", "").lower() in ("1", "true", "yes")
+    if auth_disabled:
+        server.run(transport=transport)
+        return
+
+    import uvicorn
+
+    from .auth import AuthMiddleware
+
+    if transport == "streamable-http":
+        app = server.streamable_http_app()
+    elif transport == "sse":
+        app = server.sse_app()
+    else:
+        server.run(transport=transport)
+        return
+
+    app.add_middleware(AuthMiddleware)
+    uvicorn.run(
+        app,
+        host=server.settings.host,
+        port=server.settings.port,
+        log_level="info",
+    )
 
 
 if __name__ == "__main__":
