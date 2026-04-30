@@ -95,34 +95,74 @@ async def _build_scoped_rag() -> Any:
     working_dir = os.environ.get("WORKING_DIR", str(SCRIPT_DIR / "rag_storage_local"))
     workspace = os.environ.get("WORKSPACE", "unified_diet_kg")
 
-    # Import LLM and embedding bindings lazily so missing optional deps do
-    # not break the server at import time.
-    from lightrag.llm.ollama import ollama_model_complete, ollama_embed
+    # LLM + embedding bindings — chosen by config_*.env (LLM_BINDING/EMBEDDING_BINDING).
+    # Production target: OpenRouter (OpenAI-compatible). Ollama path retained as
+    # fallback for fully-offline pipeline-development sessions only.
     from lightrag.utils import EmbeddingFunc
 
     embedding_dim = int(os.environ.get("EMBEDDING_DIM", "1024"))
-    embedding_model = os.environ.get("EMBEDDING_MODEL", "bge-m3:latest")
-    llm_model = os.environ.get("LLM_MODEL", "qwen2.5-coder:7b")
-    llm_host = os.environ.get("LLM_BINDING_HOST", "http://localhost:11434")
+    embedding_model = os.environ.get("EMBEDDING_MODEL", "nvidia/llama-nemotron-embed-vl-1b-v2:free")
+    llm_model = os.environ.get("LLM_MODEL", "nvidia/nemotron-3-nano-30b-a3b:free")
+    llm_binding = os.environ.get("LLM_BINDING", "openai").lower()
+    llm_host = os.environ.get("LLM_BINDING_HOST", "https://openrouter.ai/api/v1")
+    api_key = (
+        os.environ.get("LLM_BINDING_API_KEY")
+        or os.environ.get("EMBEDDING_BINDING_API_KEY")
+        or os.environ.get("OPENROUTER_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+    )
 
-    async def _embed(texts: list[str]) -> Any:
-        return await ollama_embed(
-            texts,
-            embed_model=embedding_model,
-            host=llm_host,
-        )
+    if llm_binding == "openai":
+        from lightrag.llm.openai import openai_complete_if_cache, openai_embed
+
+        async def _embed(texts: list[str]) -> Any:
+            return await openai_embed(
+                texts,
+                model=embedding_model,
+                base_url=llm_host,
+                api_key=api_key,
+            )
+
+        async def _llm(prompt: str, system_prompt: str | None = None,
+                       history_messages: list[dict] | None = None, **kwargs: Any) -> str:
+            return await openai_complete_if_cache(
+                llm_model,
+                prompt,
+                system_prompt=system_prompt,
+                history_messages=history_messages or [],
+                base_url=llm_host,
+                api_key=api_key,
+                **kwargs,
+            )
+
+        llm_func = _llm
+        embed_func = _embed
+    else:
+        # Ollama fallback (local pipeline dev). Imported only when needed
+        # so a container without the `ollama` package still boots under openai.
+        from lightrag.llm.ollama import ollama_embed, ollama_model_complete
+
+        async def _embed_ollama(texts: list[str]) -> Any:
+            return await ollama_embed(
+                texts,
+                embed_model=embedding_model,
+                host=llm_host,
+            )
+
+        llm_func = ollama_model_complete
+        embed_func = _embed_ollama
 
     rag = LightRAG(
         working_dir=working_dir,
         workspace=workspace,
         graph_storage="ScopedNeo4JStorage",
-        llm_model_func=ollama_model_complete,
+        llm_model_func=llm_func,
         llm_model_name=llm_model,
-        llm_model_kwargs={"host": llm_host, "options": {"num_ctx": 32768}},
+        llm_model_kwargs={"host": llm_host},
         embedding_func=EmbeddingFunc(
             embedding_dim=embedding_dim,
             max_token_size=8192,
-            func=_embed,
+            func=embed_func,
         ),
     )
     await rag.initialize_storages()
