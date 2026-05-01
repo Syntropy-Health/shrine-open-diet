@@ -256,7 +256,8 @@ This package always:
 
 ## See also
 
+- **Researcher's guide** (question-first): [`docs/RESEARCHER_GUIDE.md`](../docs/RESEARCHER_GUIDE.md) — pick your persona, map question → tool, worked walkthroughs
 - **Design**: [`research-journal/plans/2026-04-29-mcp-gateway-design.md`](../research-journal/plans/2026-04-29-mcp-gateway-design.md) — toolkit + design tensions + 4 trade-off considerations
 - **NCBI enrichment**: [`research-journal/plans/2026-05-01-ncbi-enrichment-and-entity-resolution-design.md`](../research-journal/plans/2026-05-01-ncbi-enrichment-and-entity-resolution-design.md) — current data-overlay plan
 - **Auth contract**: `~/.claude/projects/.../memory/mcp-auth-contract.md`
-- **Open issues**: [#5 (Layer A degraded)](https://github.com/Syntropy-Health/shrine-diet-bioactivity/issues/5) · [#6 (kg_node_neighborhood 400)](https://github.com/Syntropy-Health/shrine-diet-bioactivity/issues/6)
+- **Open issues**: [#5 (Layer A degraded)](https://github.com/Syntropy-Health/shrine-diet-bioactivity/issues/5) · [#6 (kg_node_neighborhood 400)](https://github.com/Syntropy-Health/shrine-diet-bioactivity/issues/6) · [#7 (paper-source ingestion)](https://github.com/Syntropy-Health/shrine-diet-bioactivity/issues/7)
