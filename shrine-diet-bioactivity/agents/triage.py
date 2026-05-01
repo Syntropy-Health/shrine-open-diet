@@ -14,6 +14,43 @@ from autogen import ConversableAgent
 from agents.llm_config import default_llm_config  # type: ignore[import-not-found]
 from agents.models import ResearchQuestion, Triage  # type: ignore[import-not-found]
 
+
+def _extract_json_obj(text: str) -> str:
+    """Extract the first balanced JSON object from a possibly-padded LLM reply.
+
+    Free-tier Nemotron sometimes pads structured-output JSON with
+    tens of thousands of trailing whitespace/newlines that
+    `model_validate_json` rejects. This walker finds the first balanced
+    {...} and returns just that slice, ignoring outer chatter.
+    """
+    s = text.strip()
+    start = s.find('{')
+    if start == -1:
+        return s
+    depth = 0
+    in_str = False
+    esc = False
+    for i in range(start, len(s)):
+        c = s[i]
+        if esc:
+            esc = False
+            continue
+        if c == '\\' and in_str:
+            esc = True
+            continue
+        if c == '"':
+            in_str = not in_str
+            continue
+        if in_str:
+            continue
+        if c == '{':
+            depth += 1
+        elif c == '}':
+            depth -= 1
+            if depth == 0:
+                return s[start:i + 1]
+    return s[start:]
+
 TRIAGE_SYSTEM_PROMPT = """\
 You are the triage clinician of a clinical research team. Given a
 free-form research question about a herbal/dietary intervention, you:
@@ -51,13 +88,24 @@ def build_triage_agent() -> Callable[[str], tuple[ResearchQuestion, Triage]]:
         human_input_mode="NEVER",
     )
 
+    def _reply_text(reply: object) -> str:
+        if reply is None:
+            raise RuntimeError("triage LLM returned None")
+        if isinstance(reply, str):
+            return reply
+        if isinstance(reply, dict):
+            content = reply.get("content")
+            if isinstance(content, str):
+                return content
+        raise RuntimeError(f"triage LLM returned unsupported shape: {type(reply).__name__}")
+
     def run(question_text: str) -> tuple[ResearchQuestion, Triage]:
         rq_reply = rq_agent.generate_reply(messages=[{"role": "user", "content": question_text}])
-        rq = ResearchQuestion.model_validate_json(rq_reply if isinstance(rq_reply, str) else rq_reply["content"])
+        rq = ResearchQuestion.model_validate_json(_extract_json_obj(_reply_text(rq_reply)))
         triage_reply = triage_agent.generate_reply(
             messages=[{"role": "user", "content": f"Question: {question_text}\nResearchQuestion: {rq.model_dump_json()}"}]
         )
-        t = Triage.model_validate_json(triage_reply if isinstance(triage_reply, str) else triage_reply["content"])
+        t = Triage.model_validate_json(_extract_json_obj(_reply_text(triage_reply)))
         return rq, t
 
     return run

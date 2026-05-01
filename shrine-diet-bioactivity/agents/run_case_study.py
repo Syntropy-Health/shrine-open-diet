@@ -8,6 +8,19 @@ Prints:  confidence=X.XXX defer=True/False
 """
 from __future__ import annotations
 
+# Bootstrap sys.path so this module works when invoked as
+# `python3 -m agents.run_case_study` without a prior conftest.py
+# (e.g. CLI, Makefile). When pytest runs, conftest.py has already done this.
+import sys as _sys
+from pathlib import Path as _Path
+_REPO = _Path(__file__).resolve().parent.parent  # shrine-diet-bioactivity/
+for _sub in ("", "lightrag", "agents"):
+    _p = str(_REPO / _sub) if _sub else str(_REPO)
+    if _p not in _sys.path:
+        _sys.path.insert(0, _p)
+# Pyright thinks the for-loop body might not execute; ignore.
+del _sys, _Path, _REPO  # type: ignore[name-defined]
+
 import json
 from datetime import datetime, timezone
 from pathlib import Path

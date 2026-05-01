@@ -1,21 +1,26 @@
 # shrine-diet-bioactivity/agents/panel/assembly.py
 """GroupChat assembly with MDAgents-style adaptive triage.
+
 Maps Triage.complexity → role-agent subset → GroupChat with round-robin
 speaker selection + 2-round cap (verdict + rebuttal).
 
-AG2 v0.12.1 quirk: `register_for_llm` calls `tool.tool_schema` which calls
-`get_function_schema(self.func, ...)` on inject_params-wrapped function.
-`inject_params` creates a wrapper whose `__globals__` does NOT include
-`QueryMode` from `agents.tools.kg_query` (because the original module uses
-`from __future__ import annotations` making all annotations string ForwardRefs).
-Pydantic's TypeAdapter then fails to resolve `ForwardRef('QueryMode')`.
+Per-role tool registration (per `staged-mcp-persona-audit.md`):
+  Dietitian          → kg_diet_to_compounds, kg_compound_to_symptoms, kg_query
+  Pharmacologist     → kg_compound_to_targets, kg_query
+  TCMPractitioner    → kg_bilingual_term, kg_herb_to_diseases,
+                       kg_herb_to_symptoms, kg_query
+  SafetyReviewer     → kg_hdi_check, kg_query
+  ClinicalResearch…  → kg_query  (Layer A only — synthesis, not retrieval)
+  DeferToClinician   → kg_query
 
-Fix: define a thin wrapper `_kg_query_tool` here without `from __future__ import
-annotations`, using an inline Literal type — this module does NOT use
-`from __future__ import annotations`. The wrapper delegates to the canonical
-`kg_query` so all LightRAG-or-SQLite fallback semantics are preserved.
+AG2 v0.12.1 inspects function signatures via inject_params + Pydantic's
+TypeAdapter. `agents.tools.kg_tools` does NOT use `from __future__ import
+annotations` precisely so AG2 can resolve `Literal[...]` and primitive
+return types directly. We register kg_tools functions as-is — no thin
+wrappers needed — and keep the legacy `_kg_query_tool` shim only for
+the kg_query Layer-A fallback that wraps a non-future-annotated module.
 """
-from typing import List, Literal, cast
+from typing import Callable, List, Literal, cast
 
 from autogen import ConversableAgent, GroupChat, GroupChatManager
 from autogen.agentchat.agent import Agent
@@ -28,6 +33,10 @@ from agents.panel import (
     build_tcm_practitioner,
 )
 from agents.tools.kg_query import kg_query as _kg_query_impl
+from agents.tools.kg_tools import (  # type: ignore[import-not-found]
+    kg_bilingual_term, kg_compound_to_symptoms, kg_compound_to_targets,
+    kg_diet_to_compounds, kg_hdi_check, kg_herb_to_diseases, kg_herb_to_symptoms,
+)
 
 
 MODERATOR_PROMPT = """\
@@ -46,15 +55,51 @@ def _kg_query_tool(
     question: str,
     mode: Literal["local", "global", "hybrid", "naive", "mix"] = "hybrid",
 ) -> KGResult:
-    """Query the unified diet/TCM KG; returns typed chains.
-
-    Thin wrapper around agents.tools.kg_query.kg_query that avoids the
-    AG2 v0.12.1 ForwardRef resolution failure caused by
-    `from __future__ import annotations` in the source module.
-    Delegates fully to the canonical implementation so all LightRAG-primary
-    + SQLite-fallback semantics are preserved.
+    """Layer-A fallback. Thin wrapper around `agents.tools.kg_query.kg_query`
+    that avoids the AG2 v0.12.1 ForwardRef issue with future-annotated
+    source modules. Delegates fully to the canonical implementation.
     """
     return _kg_query_impl(question, mode)
+
+
+# Per-role tool registration map. Each entry is (mcp_name, callable, description).
+# kg_query is included as the last fallback for every role.
+_KG_QUERY_DESC = "Layer A natural-language Q&A over the KG. Use as last resort when no role-priored tool fits."
+
+ROLE_TOOLS: dict[str, list[tuple[str, Callable, str]]] = {
+    "Dietitian": [
+        ("kg_diet_to_compounds", kg_diet_to_compounds,
+         "Food → bioactive compounds. Seed with a food name (e.g. 'Garlic')."),
+        ("kg_compound_to_symptoms", kg_compound_to_symptoms,
+         "Compound → herb → symptom (composite). Seed with compound name (e.g. 'CURCUMIN')."),
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+    "Pharmacologist": [
+        ("kg_compound_to_targets", kg_compound_to_targets,
+         "Compound → protein targets. Seed with compound name (e.g. 'Curcumin' — auto-uppercased)."),
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+    "TCMPractitioner": [
+        ("kg_bilingual_term", kg_bilingual_term,
+         "Bilingual canonicalization for TCM herb terms. Accepts EN/CN/Pinyin."),
+        ("kg_herb_to_diseases", kg_herb_to_diseases,
+         "Herb → Disease (CMAUP + HERB 2.0). Seed with Latin name (e.g. 'Ginkgo biloba')."),
+        ("kg_herb_to_symptoms", kg_herb_to_symptoms,
+         "Herb → Symptom (Duke + SymMap). Seed with herb common or Latin name."),
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+    "SafetyReviewer": [
+        ("kg_hdi_check", kg_hdi_check,
+         "HDI-Safe-50 lookup. Returns severity + mechanism + citation, or found=false."),
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+    "ClinicalResearchScientist": [
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+    "DeferToClinician": [
+        ("kg_query", _kg_query_tool, _KG_QUERY_DESC),
+    ],
+}
 
 
 def _select_roles(triage: Triage) -> list[ConversableAgent]:
@@ -69,20 +114,21 @@ def _select_roles(triage: Triage) -> list[ConversableAgent]:
     ]
 
 
-def _register_kg_tool(agents: list[ConversableAgent]) -> None:
-    """Register kg_query with every panel agent (for both LLM-call discovery
-    and Python-side execution). AG2 will route tool calls correctly."""
+def _register_role_tools(agents: list[ConversableAgent]) -> None:
+    """Register per-role tool subsets. Each agent gets the tools listed for
+    its role name in ROLE_TOOLS, plus kg_query as a universal fallback.
+    Agents with no entry in ROLE_TOOLS get kg_query only.
+    """
     for a in agents:
-        a.register_for_llm(
-            name="kg_query",
-            description="Query the unified diet/TCM KG; returns typed chains.",
-        )(_kg_query_tool)
-        a.register_for_execution(name="kg_query")(_kg_query_tool)
+        tools = ROLE_TOOLS.get(a.name, [("kg_query", _kg_query_tool, _KG_QUERY_DESC)])
+        for tool_name, fn, description in tools:
+            a.register_for_llm(name=tool_name, description=description)(fn)
+            a.register_for_execution(name=tool_name)(fn)
 
 
 def assemble_panel(triage: Triage) -> tuple[GroupChat, GroupChatManager]:
     roles = _select_roles(triage)
-    _register_kg_tool(roles)
+    _register_role_tools(roles)
     chat = GroupChat(
         agents=cast(List[Agent], roles),
         messages=[],
