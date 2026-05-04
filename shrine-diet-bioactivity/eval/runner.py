@@ -128,9 +128,10 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--split",
-        choices=["train", "val", "test"],
+        choices=["train", "val", "test", "all"],
         default="test",
-        help="Which split to evaluate (train|val|test). Default: test.",
+        help="Which split to evaluate (train|val|test|all). Default: test. "
+             "Use 'all' for the full 40 scenarios (paper-grade matrix).",
     )
 
     args = parser.parse_args()
@@ -154,7 +155,14 @@ if __name__ == "__main__":
     # --- Load splits manifest and filter scenarios ---
     try:
         splits_data = json.loads(splits_path.read_text())
-        split_ids: list[str] = splits_data[f"{args.split}_ids"]
+        if args.split == "all":
+            split_ids = (
+                splits_data.get("train_ids", [])
+                + splits_data.get("val_ids", [])
+                + splits_data.get("test_ids", [])
+            )
+        else:
+            split_ids = splits_data[f"{args.split}_ids"]
     except Exception as exc:
         parser.error(f"Failed to read --splits file: {exc}")
 
