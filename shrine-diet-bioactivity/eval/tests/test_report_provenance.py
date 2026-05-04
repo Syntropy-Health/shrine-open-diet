@@ -1,6 +1,8 @@
 """Test for the source-attribution-based cypher_runner factory."""
 import pytest
 
+from eval.report import build_source_attribution_runner  # type: ignore[import-not-found]
+
 
 KNOWN_PREFIXES = ("cmaup:", "duke:", "herb2:", "symmap:", "hdi-safe-50:")
 
@@ -8,8 +10,6 @@ KNOWN_PREFIXES = ("cmaup:", "duke:", "herb2:", "symmap:", "hdi-safe-50:")
 def test_source_attribution_runner_accepts_known_kg_prefix():
     """Edges whose source_id starts with a known KG dataset prefix
     are trusted as KG-faithful (the bundle pulled them from the live KG)."""
-    from eval.report import build_source_attribution_runner  # type: ignore[import-not-found]
-
     chains_with_sources = {
         ("Curcuma longa", "CONTAINS_COMPOUND", "CURCUMIN"): "duke:contains_compound",
         ("CURCUMIN", "TARGETS_PROTEIN", "COX-2"): "cmaup:compound_target",
@@ -24,7 +24,6 @@ def test_source_attribution_runner_accepts_known_kg_prefix():
 def test_source_attribution_runner_rejects_unknown_source():
     """Edges with unknown or empty source_id are rejected — these are
     LLM-emitted or hallucinated edges, not KG-faithful."""
-    from eval.report import build_source_attribution_runner
 
     chains_with_sources = {
         ("X", "BOGUS", "Y"): "llm:hallucinated",
@@ -38,7 +37,6 @@ def test_source_attribution_runner_rejects_unknown_source():
 
 def test_source_attribution_runner_rejects_unmapped_edge():
     """Edges not present in the precomputed map are rejected (defensive)."""
-    from eval.report import build_source_attribution_runner
 
     runner = build_source_attribution_runner({})
     assert runner("any", "edge", "missing") is False
@@ -46,7 +44,6 @@ def test_source_attribution_runner_rejects_unmapped_edge():
 
 def test_source_attribution_runner_accepts_all_known_prefixes():
     """All five canonical KG dataset prefixes are accepted."""
-    from eval.report import build_source_attribution_runner
 
     chains = {
         ("a", "REL", "b"): "cmaup:plant_disease",
@@ -62,7 +59,6 @@ def test_source_attribution_runner_accepts_all_known_prefixes():
 
 @pytest.mark.parametrize("bad_prefix", ["mcp:something", "openai:hallucinated", "unknown:"])
 def test_source_attribution_runner_rejects_non_canonical_prefix(bad_prefix):
-    from eval.report import build_source_attribution_runner
 
     chains = {("a", "REL", "b"): bad_prefix}
     runner = build_source_attribution_runner(chains)
