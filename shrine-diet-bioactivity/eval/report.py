@@ -37,6 +37,7 @@ del _sys, _Path, _REPO  # type: ignore[name-defined]
 import json
 import math
 import random
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Callable
 
@@ -45,6 +46,7 @@ from typing import Any, Callable
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402  (must come after matplotlib.use)
+import numpy as np  # noqa: E402
 
 from agents.models import ResearchSynthesis  # type: ignore[import-not-found]
 from eval.metrics import (  # type: ignore[import-not-found]
@@ -641,6 +643,91 @@ def _write_paired_tests_md(
 
 
 # ---------------------------------------------------------------------------
+# Per-category breakdown (Paper 1 §E3)
+# ---------------------------------------------------------------------------
+
+
+def render_category_breakdown(
+    results: dict[str, list],
+    scenarios: list,
+    out_dir: Path,
+    metric_fn: Callable[[list, list], float],
+    metric_name: str,
+) -> tuple[Path, Path]:
+    """Render per-category × per-system heatmap on `metric_name`.
+
+    Slices `scenarios` by `scenario.category`; for each (category, system)
+    cell, calls `metric_fn(predictions_in_category, scenarios_in_category)`.
+    Writes:
+      - out_dir/category_breakdown_<metric_name>.md
+      - out_dir/category_heatmap_<metric_name>.png
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    by_cat: dict[str, list[int]] = defaultdict(list)
+    for i, s in enumerate(scenarios):
+        by_cat[getattr(s, "category", "unknown")].append(i)
+
+    categories = sorted(by_cat.keys())
+    systems = sorted(results.keys())
+
+    # Compute matrix
+    matrix: dict[str, dict[str, float]] = {}
+    for sys_name in systems:
+        matrix[sys_name] = {}
+        for cat in categories:
+            idxs = by_cat[cat]
+            cat_preds = [results[sys_name][i] for i in idxs if i < len(results[sys_name])]
+            cat_scens = [scenarios[i] for i in idxs]
+            try:
+                val = metric_fn(cat_preds, cat_scens)
+            except Exception:
+                val = float("nan")
+            matrix[sys_name][cat] = val
+
+    # Markdown table
+    md_lines = [f"# Per-category breakdown — {metric_name}", ""]
+    md_lines.append("| System | " + " | ".join(categories) + " |")
+    md_lines.append("|---|" + "|".join("---" for _ in categories) + "|")
+    for sys_name in systems:
+        row = [sys_name] + [f"{matrix[sys_name][c]:.3f}" for c in categories]
+        md_lines.append("| " + " | ".join(row) + " |")
+    md_path = out_dir / f"category_breakdown_{metric_name}.md"
+    md_path.write_text("\n".join(md_lines) + "\n")
+
+    # Heatmap PNG
+    png_path = out_dir / f"category_heatmap_{metric_name}.png"
+    if categories and systems:
+        try:
+            data = np.array([[matrix[s][c] for c in categories] for s in systems])
+            fig, ax = plt.subplots(figsize=(max(4, len(categories) * 1.5),
+                                            max(3, len(systems) * 0.6)))
+            im = ax.imshow(data, cmap="viridis", aspect="auto", vmin=0, vmax=1)
+            ax.set_xticks(range(len(categories)))
+            ax.set_xticklabels(categories, rotation=30, ha="right")
+            ax.set_yticks(range(len(systems)))
+            ax.set_yticklabels(systems)
+            for i in range(len(systems)):
+                for j in range(len(categories)):
+                    v = data[i, j]
+                    txt = "—" if np.isnan(v) else f"{v:.2f}"
+                    ax.text(j, i, txt, ha="center", va="center",
+                            color="white" if v < 0.5 else "black", fontsize=9)
+            ax.set_title(f"{metric_name} per category × system")
+            fig.colorbar(im, ax=ax, label=metric_name)
+            fig.tight_layout()
+            fig.savefig(png_path, dpi=150)
+            plt.close(fig)
+        except ImportError:
+            png_path.write_bytes(b"")  # placeholder when matplotlib missing
+    else:
+        png_path.write_bytes(b"")
+
+    return md_path, png_path
+
+
+# ---------------------------------------------------------------------------
 # CLI entry-point
 # ---------------------------------------------------------------------------
 
@@ -815,3 +902,14 @@ if __name__ == "__main__":
     print(f"summary.md     -> {summary_path}")
     print(f"reliability    -> {diagram_path}")
     print(f"paired_tests   -> {results_dir / 'paired_tests.md'}")
+
+    # E3: per-category breakdown for verdict_kappa
+    try:
+        cat_md, cat_png = render_category_breakdown(
+            run_results, run_scenarios, out_dir=results_dir,
+            metric_fn=verdict_agreement_kappa, metric_name="verdict_kappa",
+        )
+        print(f"category_md    -> {cat_md}")
+        print(f"category_png   -> {cat_png}")
+    except Exception as exc:
+        print(f"WARNING: per-category breakdown failed: {exc}", file=_sys.stderr)
