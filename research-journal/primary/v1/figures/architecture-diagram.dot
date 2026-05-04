@@ -1,0 +1,35 @@
+digraph diet_os {
+    rankdir=LR;
+    node [shape=box, style=filled, fontname="Helvetica"];
+
+    spec [label="Case spec\n(research question)", fillcolor="#e8e8e8"];
+    triage [label="Triage agent\n(PICO + complexity)", fillcolor="#d0e8d0"];
+    retrieve [label="retrieve_for_question()\nLayer-B/C MCP traversals", fillcolor="#d0e0f0"];
+
+    subgraph cluster_panel {
+        label="6-Role Panel (GroupChat, max_round=N)";
+        style=dashed;
+        Dietitian; Pharmacologist; TCMPractitioner;
+        ClinicalResearchScientist; SafetyReviewer; DeferToClinician;
+    }
+    moderator [label="Moderator\n(synthesize PanelDeliberation)", fillcolor="#f0e8d0"];
+    calibrator [label="Calibrator\n+ Synthesis assembly", fillcolor="#f0d8d8"];
+    out [label="ResearchSynthesis\n(verdicts, candidate_chains, confidence)", fillcolor="#e8e8e8"];
+
+    spec -> triage -> retrieve;
+    retrieve -> Dietitian;
+    retrieve -> Pharmacologist;
+    retrieve -> TCMPractitioner;
+    retrieve -> ClinicalResearchScientist;
+    retrieve -> SafetyReviewer;
+    retrieve -> DeferToClinician;
+
+    Dietitian -> moderator;
+    Pharmacologist -> moderator;
+    TCMPractitioner -> moderator;
+    ClinicalResearchScientist -> moderator;
+    SafetyReviewer -> moderator;
+    DeferToClinician -> moderator;
+
+    moderator -> calibrator -> out;
+}
