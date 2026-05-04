@@ -328,7 +328,10 @@ def _paired_bootstrap_pvalue(
     hi_idx = min(hi_idx, len(diffs) - 1)
     ci_lo = diffs[lo_idx]
     ci_hi = diffs[hi_idx]
-    p_value = sum(1 for d in diffs if d <= 0) / len(diffs)
+    # Davison-Hinkley (k+1)/(B+1) convention — smallest reportable p is
+    # 1/(B+1), never exactly 0.0. Per peer-review C3.
+    k = sum(1 for d in diffs if d <= 0)
+    p_value = (k + 1) / (len(diffs) + 1)
     return mean_diff, ci_lo, ci_hi, p_value
 
 
@@ -412,7 +415,7 @@ def render_report(
     scenarios: list[Scenario],
     out_dir: Path,
     cypher_runner: Any = None,
-    n_bootstrap: int = 1000,
+    n_bootstrap: int = 10000,
     seed: int = 42,
 ) -> dict:
     """Render runner outputs into evaluation report artifacts.
@@ -424,7 +427,11 @@ def render_report(
         out_dir:       Directory under which to write all artifacts.
         cypher_runner: Optional callable (src, edge, tgt) -> bool for
                        provenance_faithfulness.  If None, the metric is skipped.
-        n_bootstrap:   Bootstrap iterations for CI and paired tests (default 1000).
+        n_bootstrap:   Bootstrap iterations for CI and paired tests
+                       (default 10000; raised from 1000 per peer-review C3
+                       so the p-value floor sits at 1/(B+1) ≈ 9.999e-5
+                       after Davison-Hinkley correction). Lower values are
+                       acceptable for unit tests.
         seed:          Random seed for reproducibility.
 
     Returns:
@@ -575,14 +582,30 @@ def _write_paired_tests_md(
 ) -> None:
     """Write paired bootstrap tests — diet_os vs each baseline.
 
-    p-values are Bonferroni-adjusted by n_baselines (number of non-diet_os systems).
+    Per peer-review C2: p-values are Bonferroni-adjusted by the FULL
+    comparison family (n_baselines × n_metrics_tested), not just by
+    n_baselines. Provenance and Bilingual are excluded from the test
+    family because they are vacuously identical or zero across systems
+    (n_metrics_tested=4: verdict_kappa, ece, hdi_recall, defer_acc).
+
+    Per peer-review C3: p_raw is computed via the Davison-Hinkley
+    `(k+1)/(B+1)` convention so the smallest reportable p is
+    `1/(B+1)` — never exactly 0.0. With B=10000 the floor is
+    p_raw ≈ 9.999e-5.
     """
     if "diet_os" not in results:
         path.write_text("# Paired tests\n\n*No diet_os system in results — skipped.*\n")
         return
 
-    baselines = [s for s in systems if s != "diet_os"]
+    baselines = [s for s in systems if s != "diet_os" and s != "diet_os_llm_triage"]
     n_baselines = len(baselines)
+
+    # Family size: only metrics that vary across systems get a paired test.
+    # Provenance is vacuously 1.0 under the v1 source-attribution proxy;
+    # Bilingual is uniformly 0.0 in the v1 panel. Both are excluded.
+    metrics_tested = [m for m in _METRICS if m not in ("provenance", "bilingual")]
+    n_metrics_tested = len(metrics_tested)
+    n_comparisons = n_baselines * n_metrics_tested
 
     diet_os_preds = results["diet_os"]
 
@@ -590,9 +613,13 @@ def _write_paired_tests_md(
         "# DietResearchBench-Clinical — Paired Bootstrap Tests\n",
         "Comparison: Diet-OS vs each baseline system.  \n",
         "Null hypothesis: Diet-OS performs no better than the baseline (mean_diff ≤ 0).  \n",
-        f"Bonferroni correction applied: n_baselines = {n_baselines}, "
-        f"adjusted α = {0.05 / n_baselines:.4f} per comparison.  \n",
-        f"Bootstrap iterations: {n_bootstrap}  \n",
+        f"Bonferroni correction applied across the full comparison family: "
+        f"n_baselines = {n_baselines}, n_metrics_tested = {n_metrics_tested} "
+        f"(verdict_kappa, ece, hdi_recall, defer_acc — excludes vacuous "
+        f"provenance + bilingual), n_comparisons = {n_comparisons}, "
+        f"adjusted α = {0.05 / n_comparisons:.4f} per comparison.  \n",
+        f"Bootstrap iterations: B = {n_bootstrap}; p-value via "
+        f"(k+1)/(B+1) convention; p_raw floor = {1.0 / (n_bootstrap + 1):.5f}.  \n",
         "",
         "| System | Metric | mean_diff | CI_lo | CI_hi | p_raw | p_adj (Bonferroni) |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
@@ -624,19 +651,28 @@ def _write_paired_tests_md(
             mean_diff, ci_lo, ci_hi, p_raw = _paired_bootstrap_pvalue(
                 d_scores, b_scores, n_bootstrap, seed
             )
-            p_adj = min(p_raw * n_baselines, 1.0)
+            # Bonferroni across the full comparison family (not just baselines).
+            # Excluded metrics still report stats but with p_adj = 1.0 (vacuous).
+            if metric in metrics_tested:
+                p_adj = min(p_raw * n_comparisons, 1.0)
+            else:
+                p_adj = 1.0
 
             lines.append(
                 f"| {baseline} | {metric} "
                 f"| {mean_diff:.3f} | {ci_lo:.3f} | {ci_hi:.3f} "
-                f"| {p_raw:.4f} | {p_adj:.4f} |"
+                f"| {p_raw:.5f} | {p_adj:.5f} |"
             )
 
     lines += [
         "",
-        "**Interpretation:** p_adj < 0.05 (Bonferroni-adjusted) indicates Diet-OS "
-        "statistically outperforms the baseline on that metric.  \n",
+        "**Interpretation:** p_adj < 0.05 (Bonferroni-adjusted across "
+        f"{n_comparisons} comparisons) indicates Diet-OS statistically "
+        "outperforms the baseline on that metric.  \n",
         "Note: for ECE, lower is better; mean_diff < 0 is favourable for Diet-OS.  \n",
+        "Note: provenance + bilingual are excluded from the Bonferroni family "
+        "(vacuous under v1 source-attribution proxy / no CJK content emitted); "
+        "their p_adj rows are reported as 1.0.  \n",
     ]
 
     path.write_text("\n".join(lines))
