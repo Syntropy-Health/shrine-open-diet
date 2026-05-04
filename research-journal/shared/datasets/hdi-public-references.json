@@ -1,0 +1,20 @@
+{
+  "_doc": "Curated HDI references from NIH ODS + NCCIH. Update as new evidence lands.",
+  "interactions": [
+    {"drug": "Warfarin", "herb": "Ginkgo biloba", "severity": "severe", "source": "NCCIH:ginkgo"},
+    {"drug": "Warfarin", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "Warfarin", "herb": "Ginger", "severity": "moderate", "source": "NIH-ODS:ginger"},
+    {"drug": "Warfarin", "herb": "Garlic", "severity": "moderate", "source": "NIH-ODS:garlic"},
+    {"drug": "Warfarin", "herb": "Ginseng", "severity": "moderate", "source": "NIH-ODS:ginseng"},
+    {"drug": "Cyclosporine", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "Tacrolimus", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "Indinavir", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "Digoxin", "herb": "St. John's Wort", "severity": "moderate", "source": "NCCIH:sjw"},
+    {"drug": "MAOI", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "SSRI", "herb": "St. John's Wort", "severity": "severe", "source": "NCCIH:sjw"},
+    {"drug": "Insulin", "herb": "Ginseng", "severity": "moderate", "source": "NIH-ODS:ginseng"},
+    {"drug": "Statins", "herb": "Red Yeast Rice", "severity": "moderate", "source": "NCCIH:red-yeast-rice"},
+    {"drug": "Phenytoin", "herb": "St. John's Wort", "severity": "moderate", "source": "NCCIH:sjw"},
+    {"drug": "Theophylline", "herb": "St. John's Wort", "severity": "moderate", "source": "NCCIH:sjw"}
+  ]
+}
