@@ -41,34 +41,62 @@ The Railway container is restartable; it holds zero data. All state is in Aura. 
 
 ## Authentication
 
-Every `/mcp*` request requires `Authorization: Bearer <token>`. Two valid token sources:
+Every `/mcp*` request requires `Authorization: Bearer <token>`. `/health` is the only public path (Railway healthcheck reaches it without a token).
 
-1. **Static API key** (CI / admin smoke / scripts)
-   - Stored in Infisical → `SyntropyHealth App` / `prod` / `MCP_API_KEY`
-   - Constant-time compared with the server-side env var
+> **Direction:** internal API key issuance is moving to [Unkey](https://unkey.com) — see [#10](https://github.com/Syntropy-Health/shrine-open-diet/issues/10). The two paths below are interim; the static-key path is **deprecated** and will be removed once Unkey wiring lands.
 
-2. **Clerk JWT** (admin sign-in via Google)
-   - Verified against Clerk JWKS at `clerk.syntropyhealth.bio`
-   - Token's `email` claim must be in `MCP_ADMIN_EMAILS` (comma-separated allow-list)
-   - Currently allow-listed: `mymm.psu@gmail.com`
+### Canonical — Syntropy-Journals admin token (recommended)
 
-`/health` is the only public path (Railway healthcheck reaches it without a token).
+Issue a long-lived admin token from the Syntropy-Journals Clerk-integrated token registry (`reflex_clerk_api`), then export it locally:
+
+```bash
+# In the Syntropy-Journals repo
+APP_ENV=dev uv run python scripts/issue_admin_token.py \
+  --name "kg-mcp-admin" --expires 30
+# → prints: TOKEN: sj_<id>_<secret>
+
+# In your shell — never commit this value
+export ADMIN_API_TOKEN=sj_<id>_<secret>
+```
+
+Token format is `sj_<id>_<secret>` — id-prefixed bearer with a 30-day default expiry. Issuance procedure: [`apps/Syntropy-Journals/scripts/issue_admin_token.py`](../../Syntropy-Journals/scripts/issue_admin_token.py).
+
+> **In-flight:** the kg-mcp gateway does **not yet validate `sj_*` tokens directly** — that requires a cross-service validator (Unkey, or an HTTP `/api/auth/validate-token` endpoint exposed by Syntropy-Journals). Tracked in [#10](https://github.com/Syntropy-Health/shrine-open-diet/issues/10). Until that ships, `sj_*` tokens are accepted only by Syntropy-Journals endpoints, not kg-mcp's.
+
+### Canonical — Clerk admin sign-in (currently working for kg-mcp)
+
+For browser/IDE clients that use the user's Clerk session JWT directly:
+
+- Token verified against Clerk JWKS at `clerk.syntropyhealth.bio`
+- Token's `email` claim must be in `MCP_ADMIN_EMAILS` (comma-separated allow-list)
+- Currently allow-listed: `mymm.psu@gmail.com`
+
+This path is live today.
+
+### Deprecated — static `MCP_API_KEY` (CI smoke / dev only)
+
+Kept until the Unkey migration completes; do not use for new integrations.
+
+- Stored in Infisical → `SyntropyHealth App` / `prod` / `MCP_API_KEY`
+- Constant-time compared with the server-side env var
+- Will be removed once [#10](https://github.com/Syntropy-Health/shrine-open-diet/issues/10) lands
 
 Full auth contract + rotation procedure: [`mcp-auth-contract.md`](../../../.claude/projects/-home-mo-projects-SyntropyHealth/memory/mcp-auth-contract.md) (admin-only memory doc).
 
 ## Quick smoke
 
 ```bash
-KEY=$(infisical secrets get MCP_API_KEY \
-  --projectId 687cab01-ccc1-4789-99a9-1214bd268f2b \
-  --env prod --plain)
+# Pick one of:
+#   export ADMIN_API_TOKEN=sj_<id>_<secret>     # Syntropy-Journals admin token (preferred — once #10 lands)
+#   export ADMIN_API_TOKEN=<clerk-session-jwt>  # Clerk admin sign-in (live today)
+#   export ADMIN_API_TOKEN=$(infisical secrets get MCP_API_KEY ... --plain)  # deprecated CI-only path
 
 # 1. Health (no auth)
 curl -fsS https://kg-mcp-test.up.railway.app/health
 
 # 2. MCP initialize handshake
 curl -fsS -X POST https://kg-mcp-test.up.railway.app/mcp \
-  -H "Authorization: Bearer $KEY" \
+  -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc":"2.0","id":1,"method":"initialize",
@@ -76,7 +104,7 @@ curl -fsS -X POST https://kg-mcp-test.up.railway.app/mcp \
                  "clientInfo":{"name":"smoke","version":"0.1"}}}'
 ```
 
-A complete Python smoke that initializes a session and calls each tool: [`tests/e2e/test_live_endpoints.py`](tests/e2e/test_live_endpoints.py). Set `KG_MCP_E2E_URL` and `KG_MCP_API_KEY` in env to run with `pytest -m e2e`.
+A complete Python smoke that initializes a session and calls each tool: [`tests/e2e/test_live_endpoints.py`](tests/e2e/test_live_endpoints.py). Set `KG_MCP_E2E_URL` and `ADMIN_API_TOKEN` (or legacy `KG_MCP_API_KEY`) in env to run with `pytest -m e2e`.
 
 ## Tool catalog (10 tools, 3 layers)
 

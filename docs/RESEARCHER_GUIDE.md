@@ -21,6 +21,10 @@ Find the row that matches your work and jump to that section.
 | **Drug-discovery / hypothesis generator** | Natural-product seeding for a target gene | [§5](#5-hypothesis-generator) |
 | **Systematic reviewer** | Bulk evidence-table extraction (herb-disease, compound-target) | [§6](#6-systematic-reviewer) |
 
+## Getting access
+
+All MCP calls require `Authorization: Bearer $ADMIN_API_TOKEN`. To obtain a token, see [`mcp/README.md` § Authentication](../mcp/README.md#authentication) — the canonical path is a Syntropy-Journals admin token (`sj_*` from `scripts/issue_admin_token.py`); Clerk admin sign-in works today; the static `MCP_API_KEY` is deprecated. **Do not commit any token to git.**
+
 ## Question → Tool map (cheat sheet)
 
 | Research question | Tool | Returns |
@@ -50,7 +54,7 @@ Goal: list every dietary herb known to interact dangerously with warfarin, with 
 ```bash
 # Per-herb screen — repeat for each candidate herb the patient mentions
 curl -X POST $MCP_URL/mcp \
-  -H "Authorization: Bearer $MCP_API_KEY" \
+  -H "Authorization: Bearer $ADMIN_API_TOKEN" \
   -d '{"name":"kg_hdi_check",
        "arguments":{"drug":"Warfarin","herb":"St. John'\''s Wort"}}'
 ```
