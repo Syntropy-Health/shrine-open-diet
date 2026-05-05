@@ -22,3 +22,55 @@ dist/
 # OS
 .DS_Store
 Thumbs.db
+
+# Git worktrees (local checkout branches, not tracked)
+.worktrees/
+
+# Ruff / Python tooling caches
+.ruff_cache/
+
+# diskcache memoization (LLM-response cache keyed by seed)
+.cache/
+**/.cache/
+
+# Locally-cloned upstream dependencies
+# (graphiti-core is cloned here as a read-only reference; the active
+#  install path is the shrine-diet-bioactivity/graphiti/ PoC directory)
+/graphiti/
+
+# Local environment files — never commit real credentials. `.env.example`
+# and `config_*.env` templates (using ${VAR} references only) are tracked
+# and safe. Any `.env` file with literal values is developer-local.
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+!**/config_local.env
+!**/config_production.env
+
+# Coverage reports
+coverage/
+.coverage
+htmlcov/
+*.coverage
+.nyc_output/
+
+# Test output
+.vitest/
+test-results/
+
+# Agent tooling caches — installed per-developer, never tracked
+.claude/agents/
+.claude/commands/
+.claude/hooks/
+.claude/scheduled_tasks.lock
+.claude/*.lock
+playwright-report/
+
+# Case-study run artifacts — transcripts can contain API responses; keep local
+research-journal/shared/case_study_runs/
+
+# Evaluation run artifacts — per-run JSONs are ephemeral; only cherry-pick
+# summary.md into commits when needed. The .gitkeep preserves the directory.
+research-journal/shared/results/*/

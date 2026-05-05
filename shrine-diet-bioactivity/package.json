@@ -1,0 +1,47 @@
+{
+  "name": "shrine-diet-bioactivity",
+  "version": "2.0.0",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "shrine-diet-bioactivity": "./build/index.js"
+  },
+  "scripts": {
+    "build": "rm -rf build && tsc && chmod 755 build/index.js",
+    "inspector": "tsc && npx @modelcontextprotocol/inspector npx tsx src/index.ts",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "build-food-bridge": "npx tsx scripts/build-food-bridge.ts",
+    "enrich-nutrition": "npx tsx scripts/enrich-nutrition.ts"
+  },
+  "files": [
+    "build"
+  ],
+  "keywords": [
+    "mcp",
+    "diet",
+    "bioactivity",
+    "phytochemical",
+    "nutrition",
+    "knowledge-graph"
+  ],
+  "author": "Syntropy Health",
+  "license": "ISC",
+  "description": "Thin-adapter MCP over the scoped LightRAG wrapper — 5 domain-agnostic tools for scope-filtered semantic search, graph traversal, and tenant-private knowledge ingestion.",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "better-sqlite3": "^11.7.0",
+    "xlsx": "^0.18.5",
+    "yaml": "^2.8.3",
+    "zod": "^3.25.46"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.15.29",
+    "@vitest/coverage-v8": "^4.1.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.8.3",
+    "vitest": "^4.0.18"
+  }
+}

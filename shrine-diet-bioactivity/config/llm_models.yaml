@@ -1,0 +1,20 @@
+# Pinned LLM model snapshots for AG2 (Subsystem H clinical research team).
+# Default routes through OpenRouter (free tier, OpenAI-compatible).
+# Reproducibility relies on cache_seed + temperature=0 in agents/llm_config.py.
+
+default:
+  provider: openai          # OpenAI-compatible (OpenRouter)
+  base_url: https://openrouter.ai/api/v1
+  model: nvidia/nemotron-3-nano-30b-a3b:free
+  api_key_env: OPENROUTER_API_KEY
+
+# Fallbacks — uncomment + set api_key_env if OpenRouter is unavailable
+# fallback_openai:
+#   provider: openai
+#   base_url: https://api.openai.com/v1
+#   model: gpt-4o-2024-08-06
+#   api_key_env: OPENAI_API_KEY
+# fallback_anthropic:
+#   provider: anthropic
+#   model: claude-3-5-sonnet-20241022
+#   api_key_env: ANTHROPIC_API_KEY

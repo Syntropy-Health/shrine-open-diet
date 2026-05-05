@@ -1,0 +1,524 @@
+"""
+Unified Diet Knowledge Graph — LightRAG Ingestion Script.
+
+Extracts entities and relationships from the unified herbal_botanicals.db
+SQLite database and loads them into LightRAG via ainsert_custom_kg(),
+bypassing LLM extraction entirely (zero API cost for structured data).
+
+Entity types: Herb, Compound, Food, Target, Disease, Symptom
+Relationship types: CONTAINS_COMPOUND, FOUND_IN_FOOD, TARGETS_PROTEIN,
+                     ASSOCIATED_WITH_DISEASE, TREATS_SYMPTOM
+
+Usage:
+    python ingest_unified.py --config local --dry-run
+    python ingest_unified.py --config local --batch-size 500
+    python ingest_unified.py --config production --batch-size 200
+"""
+
+from __future__ import annotations
+
+import argparse
+import asyncio
+import os
+import sqlite3
+import time
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+from entity_schema import (
+    DESCRIPTION_GENERATORS,
+    ENTITY_TYPES,
+    QUERY_BUILDERS,
+    RELATIONSHIP_TYPES,
+    describe_relationship,
+    safe_label,
+)
+from extra_sources import (
+    EXTRA_ENTITY_ADAPTERS,
+    extract_extra_entities,
+    extract_herb2_relationships,
+)
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+
+SCRIPT_DIR = Path(__file__).parent
+DB_PATH = SCRIPT_DIR / ".." / "data_local" / "herbal_botanicals.db"
+
+
+# ---------------------------------------------------------------------------
+# SQLite helpers
+# ---------------------------------------------------------------------------
+
+
+def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
+    """Check if a table exists in the SQLite database."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    ).fetchone()
+    return row is not None
+
+
+def fetch_all(conn: sqlite3.Connection, query: str, limit: int | None = None) -> list[dict]:
+    """Fetch all rows as dicts, with optional limit."""
+    if limit is not None:
+        query = f"{query} LIMIT {limit}"
+    cursor = conn.execute(query)
+    columns = [d[0] for d in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+# ---------------------------------------------------------------------------
+# Entity extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_entities(
+    conn: sqlite3.Connection,
+    entity_type: str,
+    max_count: int | None = None,
+) -> list[dict]:
+    """Extract entities of a given type from SQLite as LightRAG entity dicts."""
+    spec = ENTITY_TYPES[entity_type]
+    describe = DESCRIPTION_GENERATORS[entity_type]
+
+    # Tenant-only entity types have no SQLite source
+    if spec.get("source_table") is None and "query_builder" not in spec:
+        return []
+
+    # Check source table exists (Disease is aggregated, has no single table)
+    if spec["source_table"] and not table_exists(conn, spec["source_table"]):
+        print(f"  ⚠ Table '{spec['source_table']}' not found, skipping {entity_type}")
+        return []
+
+    # Resolve query — may be static string or dynamic builder
+    query = spec.get("query")
+    if query is None and "query_builder" in spec:
+        builder_name = spec["query_builder"]
+        query = QUERY_BUILDERS[builder_name](conn)
+    if query is None:
+        print(f"  ⚠ No query for {entity_type}, skipping")
+        return []
+
+    rows = fetch_all(conn, query, limit=max_count)
+    entities = []
+    seen_names: set[str] = set()
+
+    for row in rows:
+        name_field = spec["name_field"]
+        entity_name = str(row.get(name_field, "")).strip()
+        if not entity_name or entity_name in seen_names:
+            continue
+        seen_names.add(entity_name)
+
+        description = describe(row)
+        entities.append({
+            "entity_name": entity_name,
+            "entity_type": entity_type,
+            "description": description,
+            "scope": "shared",
+            "source_id": f"sqlite-{entity_type.lower()}",
+        })
+
+    return entities
+
+
+# ---------------------------------------------------------------------------
+# Relationship extraction
+# ---------------------------------------------------------------------------
+
+
+def extract_relationships(
+    conn: sqlite3.Connection,
+    rel_type: str,
+    max_count: int | None = None,
+) -> list[dict]:
+    """Extract relationships of a given type from SQLite as LightRAG edge dicts."""
+    spec = RELATIONSHIP_TYPES[rel_type]
+
+    # Tenant-only relationship types have no SQLite source
+    if spec.get("source_table") is None:
+        return []
+
+    if not table_exists(conn, spec["source_table"]):
+        print(f"  ⚠ Table '{spec['source_table']}' not found, skipping {rel_type}")
+        return []
+
+    rows = fetch_all(conn, spec["query"], limit=max_count)
+    relationships = []
+
+    for row in rows:
+        src = str(row.get("src_name", "")).strip()
+        tgt = str(row.get("tgt_name", "")).strip()
+        if not src or not tgt:
+            continue
+
+        description, keywords = describe_relationship(rel_type, row)
+        relationships.append({
+            "src_id": src,
+            "tgt_id": tgt,
+            "description": description,
+            "keywords": keywords,
+            "weight": 1.0,
+            "scope": "shared",
+            "source_id": f"sqlite-{rel_type.lower()}",
+        })
+
+    return relationships
+
+
+# ---------------------------------------------------------------------------
+# Batch ingestion
+# ---------------------------------------------------------------------------
+
+
+async def ingest_batch(
+    rag,
+    entities: list[dict],
+    relationships: list[dict],
+    batch_label: str,
+    source_prefix: str = "batch",
+) -> None:
+    """Insert a batch of entities and relationships into LightRAG.
+
+    ``source_prefix`` is used as the chunk's ``source_id`` prefix so
+    that downstream queries can attribute nodes / edges to a specific
+    upstream data source (e.g. ``symmap:entities-001``,
+    ``herb2:relationships-003``). LightRAG overwrites the per-entity
+    source_id with this chunk source_id during ainsert_custom_kg, so
+    this is the only surviving attribution channel.
+    """
+    source_id = f"{source_prefix}:{batch_label}"
+    entity_names = [e["entity_name"] for e in entities[:20]]
+    chunk_content = (
+        f"Batch '{batch_label}' containing {len(entities)} entities "
+        f"and {len(relationships)} relationships. "
+        f"Sample entities: {', '.join(entity_names)}"
+    )
+
+    # Both source_id and file_path are the only attribution channels
+    # LightRAG passes through to Neo4j. source_id gets rewritten to the
+    # MD5-hashed chunk_id, but file_path is preserved verbatim — we use
+    # it to encode the upstream data source (``symmap``, ``herb2``,
+    # ``duke``, ``hdi-safe-50``) so downstream queries can attribute.
+    custom_kg = {
+        "chunks": [
+            {
+                "content": chunk_content,
+                "source_id": source_id,
+                "file_path": source_prefix,
+            }
+        ],
+        "entities": [
+            {**e, "source_id": source_id, "file_path": source_prefix}
+            for e in entities
+        ],
+        "relationships": [
+            {**r, "source_id": source_id, "file_path": source_prefix}
+            for r in relationships
+        ],
+    }
+
+    await rag.ainsert_custom_kg(custom_kg)
+
+
+def batch_items(items: list, batch_size: int) -> list[list]:
+    """Split a list into batches."""
+    return [items[i : i + batch_size] for i in range(0, len(items), batch_size)]
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+async def main() -> None:
+    parser = argparse.ArgumentParser(description="Ingest unified diet KG into LightRAG")
+    parser.add_argument(
+        "--config",
+        choices=["local", "production"],
+        default="local",
+        help="Config profile (default: local)",
+    )
+    parser.add_argument("--dry-run", action="store_true", help="Print counts without writing")
+    parser.add_argument("--max-herbs", type=int, default=None, help="Max herbs to ingest")
+    parser.add_argument("--max-compounds", type=int, default=None, help="Max compounds to ingest")
+    parser.add_argument("--max-foods", type=int, default=None, help="Max foods to ingest")
+    parser.add_argument("--max-relationships", type=int, default=None, help="Max relationships per type")
+    parser.add_argument("--batch-size", type=int, default=500, help="Entities per batch (default: 500)")
+    parser.add_argument(
+        "--herb2-experimental-cap",
+        type=int,
+        default=None,
+        help=(
+            "Max experimental-tier HERB 2.0 edges to ingest "
+            "(default: 50000; 0 = unlimited; clinical tier always full)"
+        ),
+    )
+    parser.add_argument(
+        "--skip-extra-sources",
+        action="store_true",
+        help="Skip SymMap + HERB 2.0 (legacy Duke-only ingest)",
+    )
+    parser.add_argument(
+        "--max-extra-per-table",
+        type=int,
+        default=None,
+        help="Max rows to extract per SymMap/HERB 2.0 entity table (default: unlimited)",
+    )
+    args = parser.parse_args()
+
+    # 1. Load Aura creds from gitignored .env at project root.
+    project_env = SCRIPT_DIR.parent / ".env"
+    if project_env.exists():
+        load_dotenv(project_env)
+    # 2. Load profile config but DON'T override (config_local.env has
+    #    ``NEO4J_URI=${NEO4J_URI}`` placeholders that would otherwise
+    #    stomp the real values from .env).
+    config_path = SCRIPT_DIR / f"config_{args.config}.env"
+    if not config_path.exists():
+        print(f"Config not found: {config_path}")
+        return
+    load_dotenv(config_path, override=False)
+
+    # Check DB
+    if not DB_PATH.exists():
+        print(f"Database not found: {DB_PATH}")
+        print("Run: cd mcp-herbal-botanicals && make setup")
+        return
+
+    conn = sqlite3.connect(str(DB_PATH))
+    print(f"Connected to {DB_PATH}")
+    print(f"Config: {args.config}")
+    print(f"Dry run: {args.dry_run}")
+    print()
+
+    # --- Extract entities ---
+    limits = {
+        "Herb": args.max_herbs,
+        "Compound": args.max_compounds,
+        "Food": args.max_foods,
+        "Target": None,
+        "Disease": None,
+        "Symptom": None,
+    }
+
+    all_entities: dict[str, list[dict]] = {}
+    total_entities = 0
+    for entity_type in ENTITY_TYPES:
+        print(f"Extracting {entity_type} entities...")
+        entities = extract_entities(conn, entity_type, max_count=limits.get(entity_type))
+        all_entities[entity_type] = entities
+        total_entities += len(entities)
+        print(f"  → {len(entities)} {entity_type} entities")
+
+    # --- Extract extra entities (SymMap v2 + HERB 2.0) ---
+    if not args.skip_extra_sources:
+        for adapter in EXTRA_ENTITY_ADAPTERS:
+            label = f"{adapter['source']}/{adapter['table']}"
+            print(f"Extracting {label} ({adapter['entity_type']}) entities...")
+            extras = extract_extra_entities(
+                conn, adapter, max_count=args.max_extra_per_table
+            )
+            bucket = all_entities.setdefault(adapter["entity_type"], [])
+            # Dedupe across sources by entity_name — first occurrence wins,
+            # so Duke entities (loaded first) keep their richer descriptions.
+            existing = {e["entity_name"] for e in bucket}
+            new_entities = [e for e in extras if e["entity_name"] not in existing]
+            bucket.extend(new_entities)
+            total_entities += len(new_entities)
+            print(
+                f"  → {len(extras)} {label} rows, "
+                f"{len(new_entities)} new (after dedupe)"
+            )
+
+    # --- Extract relationships ---
+    all_relationships: dict[str, list[dict]] = {}
+    total_relationships = 0
+    for rel_type in RELATIONSHIP_TYPES:
+        print(f"Extracting {rel_type} relationships...")
+        rels = extract_relationships(conn, rel_type, max_count=args.max_relationships)
+        all_relationships[rel_type] = rels
+        total_relationships += len(rels)
+        print(f"  → {len(rels)} {rel_type} edges")
+
+    # --- Extract HERB 2.0 herb→disease edges ---
+    if not args.skip_extra_sources:
+        print("Extracting HERB 2.0 herb→disease relationships...")
+        herb2_rels = extract_herb2_relationships(
+            conn, experimental_cap=args.herb2_experimental_cap
+        )
+        all_relationships.setdefault("ASSOCIATED_WITH_DISEASE", []).extend(herb2_rels)
+        total_relationships += len(herb2_rels)
+
+    conn.close()
+
+    # --- Summary ---
+    print(f"\n{'=' * 50}")
+    print(f"Total entities:       {total_entities}")
+    print(f"Total relationships:  {total_relationships}")
+    print(f"Batch size:           {args.batch_size}")
+    print(f"{'=' * 50}\n")
+
+    if args.dry_run:
+        print("DRY RUN — no data written to LightRAG/Neo4j")
+        print("\nEntity breakdown:")
+        for et, entities in all_entities.items():
+            print(f"  {et:15s}: {len(entities):>8,}")
+        print("\nRelationship breakdown:")
+        for rt, rels in all_relationships.items():
+            print(f"  {rt:30s}: {len(rels):>8,}")
+        return
+
+    # --- Initialize LightRAG ---
+    print("Initializing LightRAG...")
+    from functools import partial
+    from lightrag import LightRAG
+    from lightrag.utils import EmbeddingFunc
+
+    embedding_binding = os.getenv("EMBEDDING_BINDING", "ollama")
+    embedding_model = os.getenv("EMBEDDING_MODEL", "nomic-embed-text:latest")
+    embedding_dim = int(os.getenv("EMBEDDING_DIM", "768"))
+    embedding_host = os.getenv("EMBEDDING_BINDING_HOST", "http://localhost:11434")
+
+    if embedding_binding == "ollama":
+        from lightrag.llm.ollama import ollama_embed, ollama_model_complete
+        llm_func = ollama_model_complete
+        embed_func = EmbeddingFunc(
+            embedding_dim=embedding_dim,
+            max_token_size=8192,
+            func=partial(
+                ollama_embed.func,
+                embed_model=embedding_model,
+                host=embedding_host,
+            ),
+        )
+    else:
+        from lightrag.llm.openai import gpt_4o_mini_complete, openai_embed
+        llm_func = gpt_4o_mini_complete
+        embed_func = EmbeddingFunc(
+            embedding_dim=embedding_dim,
+            max_token_size=8192,
+            func=partial(
+                openai_embed.func,
+                model=embedding_model,
+            ),
+        )
+
+    working_dir = os.getenv("WORKING_DIR", "./rag_storage_local")
+    os.makedirs(working_dir, exist_ok=True)
+
+    # Read storage config from env (matches config_local.env / config_production.env)
+    graph_storage = os.getenv("LIGHTRAG_GRAPH_STORAGE", "NetworkXStorage")
+    kv_storage = os.getenv("LIGHTRAG_KV_STORAGE", "JsonKVStorage")
+    vector_storage = os.getenv("LIGHTRAG_VECTOR_STORAGE", "NanoVectorDBStorage")
+    doc_status_storage = os.getenv("LIGHTRAG_DOC_STATUS_STORAGE", "JsonDocStatusStorage")
+    workspace = os.getenv("WORKSPACE", "unified_diet_kg")
+
+    print(f"  Graph storage: {graph_storage}")
+    print(f"  Workspace: {workspace}")
+
+    rag = LightRAG(
+        working_dir=working_dir,
+        llm_model_func=llm_func,
+        embedding_func=embed_func,
+        graph_storage=graph_storage,
+        kv_storage=kv_storage,
+        vector_storage=vector_storage,
+        doc_status_storage=doc_status_storage,
+        workspace=workspace,
+    )
+    await rag.initialize_storages()
+    print("LightRAG initialized\n")
+
+    # --- Ingest entities in batches, grouped by data source ---
+    # Source attribution survives via the chunk's source_id (e.g.
+    # ``symmap:entities-001``). Group by source_prefix derived from
+    # each entity's original source_id (e.g. ``symmap:1`` → ``symmap``).
+    start_time = time.time()
+
+    def _source_prefix(item: dict) -> str:
+        sid = item.get("source_id", "")
+        if ":" in sid:
+            return sid.split(":", 1)[0]
+        if sid.startswith("sqlite-"):
+            return "duke"
+        return "unknown"
+
+    # Group entities and relationships by source prefix.
+    grouped_entities: dict[str, list[dict]] = {}
+    for entities in all_entities.values():
+        for ent in entities:
+            grouped_entities.setdefault(_source_prefix(ent), []).append(ent)
+
+    grouped_relationships: dict[str, list[dict]] = {}
+    for rels in all_relationships.values():
+        for rel in rels:
+            grouped_relationships.setdefault(_source_prefix(rel), []).append(rel)
+
+    total_entity_batches = 0
+    total_rel_batches = 0
+
+    # Ingest entities first (nodes must exist before edges)
+    for source, entities in grouped_entities.items():
+        batches = batch_items(entities, args.batch_size)
+        print(f"\n[{source}] ingesting {len(entities)} entities in {len(batches)} batches")
+        for i, batch in enumerate(batches):
+            label = f"entities-{i + 1:03d}"
+            await ingest_batch(rag, batch, [], label, source_prefix=source)
+            total_entity_batches += 1
+
+    # Then ingest relationships
+    for source, rels in grouped_relationships.items():
+        batches = batch_items(rels, args.batch_size)
+        print(f"\n[{source}] ingesting {len(rels)} relationships in {len(batches)} batches")
+        for i, batch in enumerate(batches):
+            label = f"relationships-{i + 1:03d}"
+            await ingest_batch(rag, [], batch, label, source_prefix=source)
+            total_rel_batches += 1
+
+    entity_batches_count = total_entity_batches
+    rel_batches_count = total_rel_batches
+
+    elapsed = time.time() - start_time
+    print(f"\n{'=' * 50}")
+    print(f"Ingestion complete in {elapsed:.1f}s")
+    print(f"  Entities:       {total_entities:,}")
+    print(f"  Relationships:  {total_relationships:,}")
+    print(f"  Entity batches: {entity_batches_count}")
+    print(f"  Rel batches:    {rel_batches_count}")
+    print(f"{'=' * 50}")
+
+    await rag.finalize_storages()
+
+    # Post-ingestion: add entity_type as Neo4j labels for visual exploration
+    if graph_storage == "Neo4JStorage":
+        print("\nAdding entity type labels to Neo4j nodes...")
+        try:
+            from neo4j import GraphDatabase as Neo4jGD
+
+            neo4j_uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+            neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
+            neo4j_pass = os.getenv("NEO4J_PASSWORD", "")
+            ws = safe_label(workspace)
+            with Neo4jGD.driver(neo4j_uri, auth=(neo4j_user, neo4j_pass)) as driver:
+                with driver.session() as neo_session:
+                    for etype in ENTITY_TYPES:
+                        et = safe_label(etype)
+                        result = neo_session.run(
+                            f"MATCH (n:`{ws}`) WHERE n.entity_type = $etype "
+                            f"SET n:`{et}` RETURN COUNT(n) AS count",
+                            etype=etype,
+                        ).single()
+                        print(f"  :{etype} → {result['count']} nodes")
+        except ImportError:
+            print("  neo4j package not installed — skipping label step")
+        except Exception as e:
+            print(f"  Warning: could not add labels — {e}")
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

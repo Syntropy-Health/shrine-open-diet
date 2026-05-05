@@ -1,0 +1,888 @@
+{
+  "name": "DietResearchBench-Clinical",
+  "version": "v1",
+  "scenarios": [
+    {
+      "id": "case-herbal-001-ginger-cinv",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults receiving moderately emetogenic chemotherapy, does adjunctive ginger (Zingiber officinale) reduce chemotherapy-induced nausea and vomiting (CINV) compared with standard antiemetics alone?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["anticoagulant_therapy"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "A 576-patient URCC CCOP randomised trial (Ryan 2012) found 0.5-1.0 g/day ginger significantly reduced acute CINV severity vs placebo when added to 5-HT3 antiemetics. Multiple subsequent RCTs and meta-analyses corroborate a small-to-moderate effect with a benign safety profile at culinary-to-supplement doses.",
+      "source_citations": [
+        "Ryan 2012 PMID:21818642",
+        "Marx 2017 PMID:28911546 (systematic review)",
+        "MSK About Herbs — Ginger"
+      ]
+    },
+    {
+      "id": "case-herbal-002-turmeric-osteoarthritis",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with knee osteoarthritis, does standardised turmeric (Curcuma longa) extract reduce pain and inflammation compared with placebo or NSAID monotherapy?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["anticoagulant_therapy", "biliary_obstruction"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "A 2021 BMJ Open meta-analysis (Wang 2021) of 16 RCTs (n=1810) found turmeric/curcumin produced clinically meaningful pain reduction comparable to NSAIDs in knee OA, with fewer GI adverse events. Effect sizes are modest and bioavailability-formulation-dependent.",
+      "source_citations": [
+        "Wang 2021 PMID:33402338",
+        "Daily 2016 PMID:27533649",
+        "MSK About Herbs — Turmeric"
+      ]
+    },
+    {
+      "id": "case-herbal-003-valerian-insomnia",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with primary insomnia, does valerian (Valeriana officinalis) root extract improve sleep latency and quality compared with placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["hepatic_impairment", "concurrent_sedatives"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Bent 2006 meta-analysis (16 RCTs) reports subjective sleep-quality improvement but inconsistent objective polysomnography findings. Effect is real but small; LiverTox flags rare idiosyncratic hepatotoxicity. A 'caution' verdict reflects modest efficacy plus liver-safety signal.",
+      "source_citations": [
+        "Bent 2006 PMID:17145239",
+        "LiverTox — Valerian NBK548348",
+        "MSK About Herbs — Valerian"
+      ]
+    },
+    {
+      "id": "case-herbal-004-echinacea-uri",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults exposed to upper respiratory infection (URI) or with early symptoms, does echinacea (Echinacea purpurea) prophylaxis or early treatment reduce the duration or severity of the cold compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["autoimmune_disease", "immunosuppressed"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Karsch-Volk 2014 Cochrane review found weak/inconsistent evidence — preparations differ widely (E. purpurea vs angustifolia, root vs aerial), and pooled effect on URI duration is small and not consistently significant. Caution warranted in immunocompromised patients per MSK guidance.",
+      "source_citations": [
+        "Karsch-Volk 2014 PMID:24554461 (Cochrane)",
+        "MSK About Herbs — Echinacea"
+      ]
+    },
+    {
+      "id": "case-herbal-005-saw-palmetto-bph",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In men with lower urinary tract symptoms attributed to benign prostatic hyperplasia (BPH), does saw palmetto (Serenoa repens) improve symptom scores (IPSS) and uroflow compared with placebo or 5-alpha reductase inhibitors?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["anticoagulant_therapy", "preoperative"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Tacklind 2012 Cochrane meta-analysis of 32 RCTs (n=5666) found saw palmetto no better than placebo at standard or higher (3x) doses for IPSS or uroflow. CAMUS trial confirmed null result. Verdict is 'caution' — safe but ineffective for the indication; bleeding-risk flag from MSK.",
+      "source_citations": [
+        "Tacklind 2012 PMID:23235581 (Cochrane)",
+        "Barry 2011 PMID:21976794 (CAMUS)",
+        "MSK About Herbs — Saw Palmetto"
+      ]
+    },
+    {
+      "id": "case-herbal-006-peppermint-ibs",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with diagnosed irritable bowel syndrome (IBS), does enteric-coated peppermint oil (Mentha x piperita) reduce global IBS symptom severity and abdominal pain compared with placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["GERD", "hiatal_hernia"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Khanna 2014 meta-analysis (9 RCTs, n=726) and Alammar 2019 (12 RCTs) report enteric-coated peppermint oil significantly improves global IBS symptoms (RR for symptom improvement ~2.4) and abdominal pain. ACG 2021 IBS guideline conditionally recommends it. Common adverse effect is reflux/heartburn from sphincter relaxation.",
+      "source_citations": [
+        "Khanna 2014 PMID:23997013",
+        "Alammar 2019 PMID:30654773",
+        "ACG IBS Guideline 2021"
+      ]
+    },
+    {
+      "id": "case-herbal-007-ashwagandha-stress",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with self-reported chronic stress or generalised anxiety, does ashwagandha (Withania somnifera) root extract reduce serum cortisol and validated anxiety scale scores compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["pregnancy", "thyroid_disease", "hepatic_impairment"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Pratte 2014 systematic review and Salve 2019 RCT (n=60) report cortisol reduction (~28%) and PSS-score improvement at 600 mg/day standardised KSM-66. However, LiverTox documents > 50 published hepatotoxicity case reports (NBK590212), and ashwagandha is contraindicated in pregnancy due to abortifacient potential. Caution-tier with explicit red flags.",
+      "source_citations": [
+        "Pratte 2014 PMID:25405876",
+        "Salve 2019 PMID:31728244",
+        "LiverTox — Ashwagandha NBK590212"
+      ]
+    },
+    {
+      "id": "case-herbal-008-milk-thistle-hepatoprotection",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with chronic liver disease (alcoholic, viral, or NAFLD), does silymarin (Silybum marianum extract) improve transaminase levels, fibrosis markers, or all-cause mortality compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["chemotherapy_concurrent"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Rambaldi 2007 Cochrane review (18 RCTs) and Fried 2012 RCT in HCV (SyNCH trial, n=154) found no significant effect on liver-related mortality, complications, or biochemical outcomes. Mechanistic plausibility (antioxidant) is strong but clinical benefit is unproven. MSK flags interaction with chemotherapy via mild CYP3A4/UGT1A1 modulation (HDI-027).",
+      "source_citations": [
+        "Rambaldi 2007 PMID:17943780 (Cochrane)",
+        "Fried 2012 PMID:22797452",
+        "HDI-027 (Milk Thistle x Indinavir)"
+      ]
+    },
+    {
+      "id": "case-herbal-009-garlic-hyperlipidemia",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with mild-to-moderate hypercholesterolemia, does garlic (Allium sativum) supplementation lower LDL cholesterol and total cholesterol compared with placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["anticoagulant_therapy", "preoperative", "antiplatelet_therapy"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Ried 2016 meta-analysis (39 RCTs, n=2298) shows garlic lowers total cholesterol by ~17 mg/dL and LDL by ~9 mg/dL — statistically significant but small. Stevinson 2000 Cochrane and Gardner 2007 Stanford RCT report null results for raw garlic. Bleeding-risk flag from MSK and HDI-033/034 (warfarin, clopidogrel).",
+      "source_citations": [
+        "Ried 2016 PMID:26764326",
+        "Gardner 2007 PMID:17372219",
+        "HDI-033 (Garlic x Warfarin)",
+        "HDI-034 (Garlic x Clopidogrel)"
+      ]
+    },
+    {
+      "id": "case-herbal-010-licorice-peptic-ulcer",
+      "version": "v1",
+      "category": "herbal_single_symptom",
+      "research_question": "In adults with functional dyspepsia or peptic ulcer disease, does deglycyrrhizinated licorice (DGL) reduce symptoms compared with placebo or PPI therapy?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["hypertension", "hypokalemia", "heart_failure", "pregnancy"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Raveendra 2012 RCT (n=50) of GutGard licorice extract showed symptom-score improvement in functional dyspepsia. Whole licorice (not DGL) carries serious mineralocorticoid risk via 11β-HSD2 inhibition (LiverTox NBK590484); deferral is appropriate when product specification is unclear. HDI-030/047/048/049 highlight diuretic/antihypertensive antagonism.",
+      "source_citations": [
+        "Raveendra 2012 PMID:21845290",
+        "LiverTox — Licorice NBK590484",
+        "HDI-047 (Licorice x Furosemide)",
+        "HDI-048 (Licorice x Lisinopril)"
+      ]
+    },
+    {
+      "id": "case-nutrition-001-vitamin-d-deficiency",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with serum 25(OH)D below 20 ng/mL (frank deficiency), does oral vitamin D3 supplementation at 1000-4000 IU/day raise serum levels into the sufficient range and reduce fracture or fall risk?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["hypercalcemia", "sarcoidosis", "renal_calculi"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Endocrine Society 2024 guideline and IOM 2011 DRI report concur that 1000-2000 IU/day reliably raises 25(OH)D into 30-50 ng/mL range in deficient adults. Bischoff-Ferrari 2009 meta-analysis (n=42,279) found ≥800 IU/day reduced hip and non-vertebral fractures by ~20%. VITAL trial (Manson 2019) modulates this in vitamin-D-replete populations but the deficiency framing is unambiguous.",
+      "source_citations": [
+        "Endocrine Society Guideline 2024",
+        "Bischoff-Ferrari 2009 PMID:19332730",
+        "Manson 2019 PMID:30415629 (VITAL)"
+      ]
+    },
+    {
+      "id": "case-nutrition-002-omega-3-cardiovascular",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with established atherosclerotic cardiovascular disease or elevated triglycerides (>500 mg/dL), does prescription EPA (icosapent ethyl) at 4 g/day reduce major adverse cardiovascular events compared with placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["anticoagulant_therapy", "atrial_fibrillation_history"],
+        "expected_hdi_severity": "mild",
+        "languages": ["en"]
+      },
+      "rationale": "REDUCE-IT (Bhatt 2019, n=8179) showed icosapent ethyl reduced primary CV endpoint by 25% (HR 0.75) over 4.9 years in statin-treated patients with elevated TG. JELIS supports the EPA-specific finding. AHA/ACC 2019 guideline incorporates the recommendation. Mild bleeding signal at high doses (HDI-036/037) and small AF excess in REDUCE-IT.",
+      "source_citations": [
+        "Bhatt 2019 PMID:30415628 (REDUCE-IT)",
+        "Yokoyama 2007 PMID:17398308 (JELIS)",
+        "HDI-036 (Fish Oil x Warfarin)"
+      ]
+    },
+    {
+      "id": "case-nutrition-003-magnesium-migraine",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with episodic migraine, does daily oral magnesium (300-600 mg elemental, typically as magnesium oxide or citrate) reduce monthly migraine frequency compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["renal_impairment", "diarrhea_prone"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Peikert 1996 RCT (n=81) and Köseoglu 2008 (n=40) report 300-600 mg/day elemental magnesium reduces migraine frequency by ~40%. AAN/AHS Level B evidence rating. Caveat: dose-limiting GI side effects with magnesium oxide; renal-impairment patients risk hypermagnesemia.",
+      "source_citations": [
+        "Peikert 1996 PMID:8792038",
+        "Köseoglu 2008 PMID:18705538",
+        "AAN/AHS Migraine Prevention Guideline 2012"
+      ]
+    },
+    {
+      "id": "case-nutrition-004-zinc-uri",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults presenting within 24 hours of common cold symptom onset, do zinc lozenges (≥75 mg elemental/day) shorten cold duration compared with placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["copper_deficiency_risk", "nasal_zinc_anosmia"],
+        "expected_hdi_severity": "mild",
+        "languages": ["en"]
+      },
+      "rationale": "Hemilä 2017 individual-patient meta-analysis (3 RCTs, n=199) found ≥75 mg/day zinc acetate lozenges shortened cold duration by ~33% if started within 24h. Cochrane 2024 update tempers effect size but maintains direction. Nasal zinc gels are contraindicated due to permanent anosmia case reports (FDA 2009).",
+      "source_citations": [
+        "Hemilä 2017 PMID:28515951",
+        "Singh 2024 PMID:38712785 (Cochrane update)",
+        "FDA Safety Communication 2009 (Zicam)"
+      ]
+    },
+    {
+      "id": "case-nutrition-005-folate-ntd",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In women of reproductive age planning pregnancy, does periconceptional folic acid (400-800 µg/day) reduce neural tube defect (NTD) incidence compared with no supplementation?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["B12_deficiency_masking", "antiepileptic_therapy"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "MRC Vitamin Study 1991 (RCT, n=1817) showed 4 mg/day folic acid prevented 72% of NTD recurrences. Czeizel 1992 Hungarian RCT confirmed 800 µg/day prevented first-occurrence NTDs. USPSTF Grade A recommendation for 400-800 µg/day periconceptionally. Clear standard of care.",
+      "source_citations": [
+        "MRC Vitamin Study Group 1991 PMID:1677062",
+        "Czeizel 1992 PMID:1307234",
+        "USPSTF Folic Acid Recommendation 2023"
+      ]
+    },
+    {
+      "id": "case-nutrition-006-iron-anemia",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with confirmed iron-deficiency anemia (low ferritin, low MCV), does oral elemental iron 60-120 mg/day (every-other-day dosing) raise hemoglobin compared with daily dosing or placebo?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["GI_bleeding_undiagnosed", "hemochromatosis"],
+        "expected_hdi_severity": "mild",
+        "languages": ["en"]
+      },
+      "rationale": "Stoffel 2017 PK study and 2020 RCT showed alternate-day oral iron achieves equivalent hemoglobin response with better tolerability than daily dosing, by avoiding hepcidin-mediated absorption blockade. BSH 2021 guideline endorses both regimens. Workup for GI bleeding is mandatory before iron supplementation in adults to avoid masking malignancy.",
+      "source_citations": [
+        "Stoffel 2017 PMID:29032466",
+        "Stoffel 2020 PMID:31570431",
+        "BSH Guideline 2021 (Snook)"
+      ]
+    },
+    {
+      "id": "case-nutrition-007-fiber-constipation",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with chronic functional constipation, does soluble fiber supplementation (psyllium 10-20 g/day) increase stool frequency and improve stool consistency compared with placebo or insoluble fiber?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["bowel_obstruction", "swallowing_disorder"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Suares 2011 meta-analysis (6 RCTs, n=302) showed soluble fiber significantly improved stool frequency, while insoluble fiber did not. ACG 2014 chronic constipation guideline recommends soluble fiber as first-line. Adequate water intake required to prevent bezoar/obstruction in dysphagic patients.",
+      "source_citations": [
+        "Suares 2011 PMID:21208187",
+        "ACG Chronic Constipation Guideline 2014"
+      ]
+    },
+    {
+      "id": "case-nutrition-008-probiotics-ibs",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with IBS, do specific multi-strain probiotic formulations (e.g., VSL#3, Bifidobacterium infantis 35624) reduce global IBS symptom severity compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["immunocompromised", "central_venous_catheter"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Ford 2018 meta-analysis (53 RCTs, n=5545) reports modest IBS symptom improvement (NNT ~7) but heterogeneity by strain is large; only certain combinations show benefit. AGA 2020 guideline recommends probiotics only in clinical-trial contexts due to insufficient evidence for specific formulations. Rare bacteremia in immunocompromised patients (Vahabnezhad 2013) warrants caution.",
+      "source_citations": [
+        "Ford 2018 PMID:30003176",
+        "AGA Probiotics Guideline 2020",
+        "Vahabnezhad 2013 PMID:23751817"
+      ]
+    },
+    {
+      "id": "case-nutrition-009-mediterranean-t2d",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with prediabetes or established type-2 diabetes, does adherence to a Mediterranean diet (high olive oil, fish, legumes, nuts) reduce HbA1c and major cardiovascular events compared with low-fat or usual-care diets?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": [],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "PREDIMED (Estruch 2018, n=7447) showed Mediterranean diet + EVOO or nuts reduced major CV events by 30% vs low-fat control. Salas-Salvadó 2014 substudy in T2D found ~0.5% HbA1c reduction. ADA 2024 Standards of Care endorse Mediterranean pattern. Strong evidence with minimal harm.",
+      "source_citations": [
+        "Estruch 2018 PMID:29897866 (PREDIMED)",
+        "Salas-Salvadó 2014 PMID:24149993",
+        "ADA Standards of Care 2024"
+      ]
+    },
+    {
+      "id": "case-nutrition-010-dash-hypertension",
+      "version": "v1",
+      "category": "nutrition",
+      "research_question": "In adults with stage 1 hypertension or pre-hypertension, does the DASH (Dietary Approaches to Stop Hypertension) eating pattern, particularly the low-sodium variant, reduce systolic blood pressure compared with a typical Western diet?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": false,
+        "expected_red_flags": ["hyperkalemia_risk_CKD", "ACE_inhibitor_concurrent"],
+        "expected_hdi_severity": "none",
+        "languages": ["en"]
+      },
+      "rationale": "Original DASH (Appel 1997, n=459) showed combined diet lowered SBP 11.4 mmHg in hypertensives. DASH-Sodium (Sacks 2001) demonstrated additive sodium-restriction effect. ACC/AHA 2017 hypertension guideline assigns Class I recommendation. CKD-stage-≥3 patients need monitoring for hyperkalemia from high K+ intake.",
+      "source_citations": [
+        "Appel 1997 PMID:9099655",
+        "Sacks 2001 PMID:11136953 (DASH-Sodium)",
+        "ACC/AHA Hypertension Guideline 2017"
+      ]
+    },
+    {
+      "id": "case-hdi-001-sjw-sertraline",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient stabilised on sertraline 100 mg/day for major depression, what are the safety implications of adding St. John's Wort (Hypericum perforatum) for residual mood symptoms?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report_series",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["serotonin_syndrome", "concurrent_SSRI", "concurrent_serotonergic"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-001: Hypericum inhibits serotonin/NE/dopamine reuptake; combined with sertraline (SSRI) produces additive serotonergic load with multiple published case reports of serotonin syndrome (hyperthermia, clonus, agitation). MSK explicitly contraindicates SSRI co-administration.",
+      "source_citations": [
+        "HDI-001 (St. John's Wort x Sertraline)",
+        "MSK About Herbs — St. John's Wort",
+        "LiverTox — St. John's Wort NBK548880"
+      ]
+    },
+    {
+      "id": "case-hdi-002-sjw-warfarin",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient on warfarin with a stable INR target of 2.0-3.0 for atrial fibrillation, what is the expected impact of starting St. John's Wort, and how should anticoagulation be managed?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report_series",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["subtherapeutic_anticoagulation", "thromboembolic_risk"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-015: SJW induces CYP2C9 (S-warfarin's main metabolic enzyme) and CYP3A4, lowering INR within 1-2 weeks of co-administration. Published case series document loss of INR control and thromboembolic events. MSK and LiverTox both flag this as a hard contraindication in anticoagulated patients.",
+      "source_citations": [
+        "HDI-015 (St. John's Wort x Warfarin)",
+        "MSK About Herbs — St. John's Wort",
+        "LiverTox — St. John's Wort NBK548880"
+      ]
+    },
+    {
+      "id": "case-hdi-003-grapefruit-simvastatin",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient on simvastatin 40 mg nightly for hypercholesterolemia, what is the clinical risk of regular grapefruit juice consumption (>240 mL/day), and what alternatives exist?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["rhabdomyolysis", "hepatotoxicity", "myopathy"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-021: Furanocoumarins in grapefruit irreversibly inhibit intestinal CYP3A4, raising simvastatin AUC up to 15-fold and dramatically increasing rhabdomyolysis risk. FDA-mandated label warnings explicitly contraindicate grapefruit. Pravastatin or rosuvastatin (non-CYP3A4) are preferred alternatives.",
+      "source_citations": [
+        "HDI-021 (Grapefruit Juice x Simvastatin)",
+        "FDA Drug Safety Communication 2012",
+        "LiverTox — Felodipine NBK548294"
+      ]
+    },
+    {
+      "id": "case-hdi-004-licorice-furosemide",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient with heart failure on furosemide 40 mg daily, what cardiac and electrolyte risks arise from regular consumption of black licorice candy or licorice-containing herbal teas?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report_series",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["hypokalemia", "torsades_de_pointes", "arrhythmia"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-047: Glycyrrhizin inhibits 11β-HSD2, producing pseudo-hyperaldosteronism with hypokalemia, sodium retention, and hypertension. Combined with loop diuretic potassium loss this precipitates severe hypokalemia and arrhythmia; published case reports include torsades de pointes. Risk applies to glycyrrhizin >100 mg/day (~50 g black licorice).",
+      "source_citations": [
+        "HDI-047 (Licorice x Furosemide)",
+        "MSK About Herbs — Licorice",
+        "LiverTox — Licorice NBK590484"
+      ]
+    },
+    {
+      "id": "case-hdi-005-ginkgo-aspirin",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient on low-dose aspirin (81 mg/day) for secondary stroke prevention, does adding ginkgo biloba 240 mg/day for cognitive symptoms increase clinically significant bleeding risk?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "case_report",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["intracranial_bleeding", "spontaneous_hyphema", "preoperative"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-032: Additive antiplatelet effect — ginkgolide B blocks PAF-mediated aggregation while aspirin inhibits COX-1. Published case reports link concurrent use to spontaneous hyphema and intracranial bleeding. MSK advises ginkgo discontinuation 1-2 weeks pre-surgery. Risk-benefit varies with patient's underlying bleeding risk.",
+      "source_citations": [
+        "HDI-032 (Ginkgo x Aspirin)",
+        "MSK About Herbs — Ginkgo",
+        "LiverTox — Ginkgo NBK548847"
+      ]
+    },
+    {
+      "id": "case-hdi-006-ginseng-warfarin",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient with mechanical mitral valve replacement on chronic warfarin (target INR 2.5-3.5), does Asian ginseng (Panax ginseng) supplementation alter anticoagulant control?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["subtherapeutic_anticoagulation", "valvular_thromboembolism"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-046: Randomised placebo-controlled trial showed Asian ginseng reduced warfarin peak INR and AUC, a pharmacodynamic antagonism likely mediated by ginsenoside Rd induction of vitamin-K-dependent clotting factor synthesis. Mechanical valves require tight INR control; subtherapeutic anticoagulation risks valve thrombosis.",
+      "source_citations": [
+        "HDI-046 (Ginseng Asian x Warfarin)",
+        "MSK About Herbs — Ginseng (Asian)",
+        "LiverTox — Ginseng NBK548200"
+      ]
+    },
+    {
+      "id": "case-hdi-007-green-tea-iron",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient with iron-deficiency anemia prescribed ferrous sulfate 325 mg three times daily, does habitual green tea consumption (3-5 cups/day) reduce iron absorption sufficiently to blunt hemoglobin recovery?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "pharmacokinetic_study",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["persistent_anemia", "treatment_failure"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en"]
+      },
+      "rationale": "Disler 1975 and Hurrell 1999 PK studies show tea polyphenols (catechins, tannins) chelate non-heme iron, reducing absorption by 60-90% when consumed within 1 hour of iron-containing meals. Effect is dose-dependent and avoidable by separating tea from iron supplements by ≥2 hours. Clinical relevance high in anemic patients.",
+      "source_citations": [
+        "Disler 1975 PMID:1138616",
+        "Hurrell 1999 PMID:10498099",
+        "WHO Iron Supplementation Guideline"
+      ]
+    },
+    {
+      "id": "case-hdi-008-garlic-saquinavir",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In an HIV-positive patient on saquinavir-based ART, does habitual garlic supplementation (>4 g/day aged garlic extract) reduce protease-inhibitor plasma concentrations sufficiently to risk virologic failure?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "pharmacokinetic_study",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["virologic_failure", "ARV_resistance"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en"]
+      },
+      "rationale": "Piscitelli 2002 (NIH-NIAID PK study, n=10) showed garlic extract reduced saquinavir AUC by 51%, Cmax by 54%, and trough by 49%. Mechanism likely involves CYP3A4 induction and P-gp modulation. NIH HIV-treatment guidelines list garlic as a herb-of-concern with PIs; defer-to-ID-clinician for regimen review.",
+      "source_citations": [
+        "Piscitelli 2002 PMID:11836820",
+        "DHHS HIV Guidelines — Drug Interactions",
+        "MSK About Herbs — Garlic"
+      ]
+    },
+    {
+      "id": "case-hdi-009-kava-alprazolam",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient prescribed alprazolam 0.5 mg three times daily for generalised anxiety, what are the hepatic and CNS-depressant risks of adding kava (Piper methysticum) for additional anxiolysis?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["hepatotoxicity", "respiratory_depression", "semi_coma"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-025: Kavalactones modulate CYP1A2/2C9/2C19/3A4 and have intrinsic GABAergic activity additive to benzodiazepines. Case report describes semi-coma when kava added to alprazolam. Independent of interaction, kava is associated with severe idiosyncratic hepatotoxicity (FDA 2002 advisory; banned in several EU countries). Combination is contraindicated.",
+      "source_citations": [
+        "HDI-025 (Kava x Alprazolam)",
+        "FDA Consumer Advisory 2002 (Kava)",
+        "LiverTox — Kava Kava NBK548637"
+      ]
+    },
+    {
+      "id": "case-hdi-010-yohimbe-clonidine",
+      "version": "v1",
+      "category": "multi_drug_hdi",
+      "research_question": "In a patient on clonidine 0.1 mg twice daily for resistant hypertension, what cardiovascular risk arises from yohimbe (Pausinystalia johimbe) supplementation marketed for sexual function?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["hypertensive_crisis", "tachyarrhythmia"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en"]
+      },
+      "rationale": "HDI-050: Yohimbine is a central α2-adrenergic antagonist — the exact pharmacologic opposite of clonidine. Co-administration reverses antihypertensive effect and has precipitated hypertensive crisis in published case reports; MSK lists yohimbe as contraindicated in hypertension. Direct PD antagonism is mechanistically inevitable.",
+      "source_citations": [
+        "HDI-050 (Yohimbe x Clonidine)",
+        "MSK About Herbs — Yohimbe"
+      ]
+    },
+    {
+      "id": "case-tcm-001-danggui-menopause",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "Compare evidence for 当归 Dang Gui (Angelica sinensis) monotherapy versus combination formulas (such as 当归补血汤 Danggui Buxue Tang) in managing menopausal vasomotor symptoms (hot flashes, night sweats) in perimenopausal women.",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["estrogen_sensitive_cancer", "anticoagulant_therapy", "photosensitivity"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Hirata 1997 RCT (n=71) of Dang Gui monotherapy showed no benefit over placebo for hot flashes. Haines 2008 RCT of Dang Gui Buxue Tang (Astragalus + Angelica 5:1) reported modest reduction in mild symptoms. Coumarin content raises bleeding risk (additive with warfarin); estrogenic activity contraindicated in hormone-sensitive cancer. Classical TCM source: 神农本草经 (Shennong Bencao Jing).",
+      "source_citations": [
+        "Hirata 1997 PMID:9075589",
+        "Haines 2008 PMID:18063451",
+        "神农本草经 — 当归 entry",
+        "MSK About Herbs — Dong Quai"
+      ]
+    },
+    {
+      "id": "case-tcm-002-huangqi-fatigue",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In adults with cancer-related fatigue or post-viral fatigue syndrome, does 黄芪 Huang Qi (Astragalus membranaceus) extract improve fatigue scores and quality-of-life measures compared with placebo or standard care?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["immunosuppressed_transplant", "autoimmune_disease", "concurrent_immunosuppressants"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Cassileth 2014 phase II trial (n=72 NSCLC patients) showed astragalus-based decoction reduced fatigue. McCulloch 2006 meta-analysis of Chinese trials suggests benefit when combined with chemotherapy. Astragalosides have immunostimulant activity — caution in transplant recipients on calcineurin inhibitors. Classical reference: 本草纲目 (Bencao Gangmu) for 补气 indication.",
+      "source_citations": [
+        "Cassileth 2014 PMID:24634446",
+        "McCulloch 2006 PMID:16505412",
+        "本草纲目 — 黄芪 entry",
+        "MSK About Herbs — Astragalus"
+      ]
+    },
+    {
+      "id": "case-tcm-003-shengma-hot-flashes",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In postmenopausal women with hot flashes who decline estrogen, does 升麻 Sheng Ma (Cimicifuga heracleifolia, Asian black cohosh) provide symptom relief comparable to Western black cohosh (Actaea racemosa)?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["hepatotoxicity", "estrogen_sensitive_cancer"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Leach 2012 Cochrane review on black cohosh found insufficient evidence for vasomotor symptom efficacy. Cimicifuga heracleifolia (Sheng Ma) is botanically distinct from A. racemosa but clinically substituted in TCM — limited RCT evidence specific to the Asian species. LiverTox documents idiosyncratic hepatotoxicity in both species. Classical reference: 伤寒论 (Shanghan Lun) for 升提透疹 (lifting/penetrating) action.",
+      "source_citations": [
+        "Leach 2012 PMID:22972105 (Cochrane)",
+        "LiverTox — Black Cohosh NBK548333",
+        "伤寒论 — 升麻汤 formula",
+        "MSK About Herbs — Black Cohosh"
+      ]
+    },
+    {
+      "id": "case-tcm-004-wuweizi-stress",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In adults with self-reported chronic stress and elevated liver enzymes, does 五味子 Wu Wei Zi (Schisandra chinensis) extract reduce ALT/AST and improve subjective stress scores compared with placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["concurrent_CYP3A4_substrates", "concurrent_immunosuppressants"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Schisandra lignans (schisandrin) demonstrate CYP3A4 inhibition in PK studies — Fan 2009 showed tacrolimus AUC increased 2-fold with co-administration. Limited RCT evidence for stress/adaptogen claims. Hepatoprotective effect supported by Chinese trials but methodology concerns. Classical reference: 神农本草经 lists 五味子 as upper-tier (上品) tonic.",
+      "source_citations": [
+        "Fan 2009 PMID:19594830",
+        "Hancke 1999 PMID:10408249",
+        "神农本草经 — 五味子 entry"
+      ]
+    },
+    {
+      "id": "case-tcm-005-mahuang-asthma",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "Given the FDA 2004 ban on ephedrine alkaloid dietary supplements, what is the current safety profile and regulatory status of using 麻黄 Ma Huang (Ephedra sinica) within traditional formulas (e.g., 麻黄汤 Mahuang Tang) for asthma or upper-airway obstruction?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "reject",
+        "expected_evidence_tier": "case_report_series",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["myocardial_infarction", "stroke", "hypertensive_crisis", "MAOI_concurrent"],
+        "expected_hdi_severity": "severe",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Haller 2000 (NEJM) review of 140 adverse events linked ephedra to stroke, MI, sudden death. FDA 2004 final rule banned dietary supplements containing ephedrine alkaloids (69 FR 6788). Combination with MAOIs causes hypertensive crisis. Classical reference: 伤寒论 — 麻黄汤 used for taiyang cold-bind syndrome but in supervised TCM-pharmacy context only; defer to TCM-licensed clinician.",
+      "source_citations": [
+        "Haller 2000 PMID:11122257 (NEJM)",
+        "FDA Final Rule 21 CFR 119 (2004)",
+        "伤寒论 — 麻黄汤 formula"
+      ]
+    },
+    {
+      "id": "case-tcm-006-huanglian-xiaoke",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In adults with type-2 diabetes corresponding to TCM 消渴 Xiao Ke (wasting-thirst) syndrome, does 黄连 Huang Lian (Coptis chinensis) — primarily its alkaloid berberine — reduce HbA1c compared with metformin or placebo?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "prefer",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["hypoglycemia", "GI_intolerance", "neonatal_kernicterus_pregnancy"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Yin 2008 RCT (n=84) showed berberine 500 mg TID achieved HbA1c reduction comparable to metformin 500 mg TID (-2.0% vs -1.5%). Lan 2015 meta-analysis (27 RCTs, n=2569) confirms berberine's glucose-lowering effect. Caveat: berberine displaces bilirubin from albumin — contraindicated in neonates and pregnancy. Classical reference: 黄帝内经 — 消渴 chapter (Suwen).",
+      "source_citations": [
+        "Yin 2008 PMID:18191047",
+        "Lan 2015 PMID:25498346",
+        "黄帝内经 (Huangdi Neijing) — 消渴 chapter"
+      ]
+    },
+    {
+      "id": "case-tcm-007-danshen-xiongbi",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In patients with stable angina pectoris (TCM 胸痹 Xiong Bi syndrome) on standard antiplatelet/statin therapy, does 丹参 Dan Shen (Salvia miltiorrhiza), particularly the Compound Danshen Dripping Pill (复方丹参滴丸), improve angina frequency and exercise tolerance?",
+      "gold": {
+        "expected_complexity": "moderate",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": true,
+        "expected_red_flags": ["anticoagulant_therapy", "warfarin_INR_elevation", "perioperative_bleeding"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Wang 2017 meta-analysis (10 RCTs, n=1024) of Compound Danshen Dripping Pill in stable angina shows symptom-frequency reduction. T89 phase III US trial completed but unblinded efficacy modest. Tanshinones inhibit CYP2C9 and platelet aggregation — case reports of warfarin INR elevation and surgical bleeding (Yu 1997). Classical reference: 金匮要略 — 胸痹心痛 chapter.",
+      "source_citations": [
+        "Wang 2017 PMID:28265312",
+        "Yu 1997 PMID:9224193",
+        "金匮要略 — 胸痹心痛 chapter"
+      ]
+    },
+    {
+      "id": "case-tcm-008-banlangen-uri",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In adults with early-onset acute pharyngitis or common cold symptoms, does 板蓝根 Ban Lan Gen (Isatis indigotica root) granule preparation reduce symptom duration compared with placebo or standard supportive care?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["G6PD_deficiency", "prolonged_high_dose_use"],
+        "expected_hdi_severity": "mild",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Wang 2014 systematic review of Chinese trials (12 RCTs) found weak evidence for symptom-duration reduction; methodological quality low. Indirubin and tryptanthrin are presumed actives. Chinese Pharmacopoeia 2020 lists Ban Lan Gen but cautions against prolonged high-dose use (case reports of cytopenia). Widely OTC in China; weak evidence base by Western standards. Classical reference: 温病条辨 (Wenbing Tiaobian) for 清热解毒 (clear heat / resolve toxin).",
+      "source_citations": [
+        "Wang 2014 PMID:24856567",
+        "Chinese Pharmacopoeia 2020 — 板蓝根",
+        "温病条辨 — 清热解毒 chapters"
+      ]
+    },
+    {
+      "id": "case-tcm-009-gouqi-tonic",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In healthy older adults seeking general tonic / 补肝肾 (liver-kidney supplementation), does daily 枸杞 Gou Qi Zi (Lycium barbarum, goji berry) consumption improve subjective wellbeing scores or objective biomarkers of antioxidant status?",
+      "gold": {
+        "expected_complexity": "low",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 1,
+        "expected_defer": false,
+        "expected_red_flags": ["warfarin_concurrent", "diabetic_hypoglycemia_risk"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Amagase 2009 RCT (n=34) reported increased subjective wellbeing and antioxidant markers after 14-day Lycium juice intake. Lam 2001 case report and subsequent series document INR elevation in warfarin patients via CYP2C9 inhibition. Generally well tolerated; bleeding-risk flag for anticoagulated patients. Classical reference: 神农本草经 lists 枸杞 as upper-tier (上品).",
+      "source_citations": [
+        "Amagase 2009 PMID:18603220",
+        "Lam 2001 PMID:11762662",
+        "神农本草经 — 枸杞 entry"
+      ]
+    },
+    {
+      "id": "case-tcm-010-danggui-buxue-tang-anemia",
+      "version": "v1",
+      "category": "tcm_bilingual",
+      "research_question": "In patients with mild iron-deficiency or blood-deficiency-pattern (TCM 血虚 Xue Xu) anemia not requiring transfusion, does the classical formula 当归补血汤 Danggui Buxue Tang (Astragalus 30 g + Angelica sinensis 6 g, 5:1 ratio) improve hemoglobin and fatigue scores compared with iron-only therapy?",
+      "gold": {
+        "expected_complexity": "high",
+        "expected_panel_verdict": "caution",
+        "expected_evidence_tier": "clinical_trial",
+        "expected_min_chains": 2,
+        "expected_defer": true,
+        "expected_red_flags": ["estrogen_sensitive_cancer", "anticoagulant_therapy", "iron_overload_unrecognised"],
+        "expected_hdi_severity": "moderate",
+        "languages": ["en", "zh"]
+      },
+      "rationale": "Gao 2015 meta-analysis (10 RCTs) reports DBT improves hemoglobin recovery in chemotherapy-induced anemia versus standard care. Mechanistically combines Astragalus immunomodulation with Angelica iron-bioavailability enhancement. Formula-level evaluation requires both herbs and 5:1 ratio fidelity (Dong 2006). Multiple red flags from Angelica component. Classical reference: 内外伤辨惑论 (Nei Wai Shang Bian Huo Lun) by 李东垣 Li Dongyuan, 1247 CE.",
+      "source_citations": [
+        "Gao 2015 PMID:26146522",
+        "Dong 2006 PMID:16859944",
+        "内外伤辨惑论 — 当归补血汤 formula (Li Dongyuan 1247)"
+      ]
+    }
+  ]
+}
