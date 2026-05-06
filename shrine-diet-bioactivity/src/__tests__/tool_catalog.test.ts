@@ -1,11 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import { buildToolDefs, FORBIDDEN_USECASE_VERBS } from '../tools.js';
 import { LightRagClient } from '../lightrag_proxy.js';
 import { AuditLog } from '../audit_log.js';
+
+const __dirname_test = dirname(fileURLToPath(import.meta.url));
 
 function fakeDeps() {
   const tmp = mkdtempSync(join(tmpdir(), 'mcp-catalog-'));
@@ -87,5 +90,18 @@ describe('MCP tool catalog', () => {
       expect(names.has(retired)).toBe(false);
     }
     rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('tools.ts header lists Phase 1 BioactivityEvidence vocabulary', () => {
+    // Regression: the docstring listing the entity/edge vocabulary should
+    // call out the Phase 1 drug-bioactive bridge so consumers know which
+    // labels become queryable through the existing primitives.
+    const src = readFileSync(
+      join(__dirname_test, '..', 'tools.ts'),
+      'utf8',
+    );
+    expect(src).toContain('BioactivityEvidence');
+    expect(src).toContain('HAS_EVIDENCE');
+    expect(src).toContain('EVIDENCE_FOR_TARGET');
   });
 });
