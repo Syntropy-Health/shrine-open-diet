@@ -15,6 +15,19 @@
  *   5. ``ingest-knowledge``  — POST /documents/custom_kg (tenant-scoped)
  *
  * Plus ``get-health`` — server-only, no data.
+ *
+ * Entity vocabulary surfaced through these primitives (post-ingest):
+ *
+ *   Domain:  Herb, Compound, Food, Target, Disease, Symptom,
+ *            BioactivityEvidence  ← Phase 1 (ChEMBL drug-target evidence)
+ *   Tenant:  Protocol, Intervention, Outcome, Biomarker
+ *
+ * Relationships (selected):
+ *   CONTAINS_COMPOUND, FOUND_IN_FOOD, TARGETS_PROTEIN,
+ *   ASSOCIATED_WITH_DISEASE, TREATS_SYMPTOM,
+ *   HAS_EVIDENCE, EVIDENCE_FOR_TARGET   ← Phase 1
+ *
+ * See docs/adr/0007-compound-identity-bridge.md for details.
  */
 
 import { z } from 'zod';
