@@ -76,34 +76,24 @@ deferred to v2 (§8).
 ### 6.3 Per-category breakdown
 
 The per-category Verdict κ heatmap (`figures/per-category-heatmap.png`,
-data in `tables/per-category.md`) shows `diet_os` strongest on `tcm_bilingual`
-(κ = 0.167), `nutrition` (0.153), and `multi_drug_hdi` (0.138), and weakest
-on `herbal_single_symptom` (κ = -0.081). Baselines are essentially flat
-across categories (max non-`diet_os` cell: `single_llm` on `multi_drug_hdi`,
-0.062). The `herbal_single_symptom` regression is consistent with eval-time
-intervention extraction missing the herb's canonical KG name in
-single-symptom scenarios — the `_intervention_from_scenario_id` heuristic
-favours multi-token names (e.g. "St John's wort + sertraline") and degrades
-on bare herbal mononyms.
+data in `tables/per-category.md`) shows `diet_os` strongest on
+`tcm_bilingual` (κ = 0.167), `nutrition` (0.153), and `multi_drug_hdi`
+(0.138), and weakest on `herbal_single_symptom` (κ = -0.081). Baselines
+are flat across categories (max non-`diet_os` cell: 0.062). The
+`herbal_single_symptom` regression traces to the same intervention-name
+extraction issue documented in §6.4 (the `_intervention_from_scenario_id`
+heuristic degrades on bare herbal mononyms).
 
 ### 6.4 Failure-mode taxonomy
 
-Across the 40 `diet_os` runs (`tables/failure-taxonomy.md`) we observe zero
-strict successes (gold-match verdict with confidence ≥ 0.1) and a clean
+Across the 40 `diet_os` runs (`tables/failure-taxonomy.md`) we observe a
 three-bucket failure distribution: 27/40 (67.5%) `retrieval_empty`, 7/40
-`panel_mis_vote`, 6/40 `calibrator_under_confidence`. The dominant failure
-mode is upstream of the panel: the eval-time
-`_intervention_from_scenario_id` heuristic misses canonical KG names for
-non-Duke compounds and TCM herbs, producing empty candidate chains.
-`case-hdi-001-sjw-sertraline` illustrates the pattern: gold `reject`,
-predicted `caution`, candidate_chains = 0, confidence = 0.016. Of the 13
-runs that *do* surface chains, 7 are panel mis-votes and 6 are correct
-verdicts under-scored by the calibrator. The 0.713 HDI Recall is therefore
-concentrated in those 13 non-empty runs; the lower 95% bound (0.300 on the
-paired-test mean_diff, 0.333 on the absolute Recall CI) reflects this
-small effective sample. The structural separation over baselines (all
-0.000) is preserved because no baseline has a mechanism to surface HDI
-claims at all — independent of how many of its 40 runs produce chains.
+`panel_mis_vote`, 6/40 `calibrator_under_confidence`. The 0.713 HDI
+Recall is concentrated in the 13 non-empty runs; lower 95% bound 0.300
+on the paired-test HDI-Recall mean_diff. The structural separation over baselines
+(all 0.000) is preserved because no baseline has a mechanism to surface
+HDI claims at all. Full case-level breakdown including the
+`case-hdi-001-sjw-sertraline` walkthrough is in Appendix A.3.
 
 ### 6.5 Triage ablation: deterministic substitute is load-bearing
 
@@ -127,18 +117,14 @@ prior, exactly the behaviour a calibrated panel should not exhibit.
 The proximate failure mode is the LLM triage step itself: 33 of 40 runs
 (82.5%) terminate with `runner-error: Invalid JSON: EOF while parsing a
 list` — the free-tier Nemotron-3-nano-30B (≤20 RPM) emits malformed JSON
-on the structured `ResearchQuestion` output. The runner falls back to
-default `complexity='low'`, `red_flags=[]`, `clarification_questions=[]`,
-which seeds zero retrieval keys; consequently 40 of 40 runs (100%) have
-empty candidate chains, and 33 of 40 panels terminate at
-`moderator_summary='error'` after exhausting AG2's `Maximum rounds (3)`.
-Two architectural components are therefore load-bearing in combination:
-(i) the deterministic triage substitute, which is invariably
-parse-clean, and (ii) the gold-question-anchored retrieval seed, which
-requires triage output the panel can actually use. Removing (i) breaks
-(ii) by cascading failure, regressing the system to the `single_llm`
-envelope. We discuss the v2 path — a small purpose-trained triage model
-or schema-constrained decoding — in §8. The 0.090 ECE that
-`diet_os_llm_triage` posts is *not* an architectural strength to retain;
-it is the spurious low-error of a system that has stopped engaging with
-the question.
+on the structured `ResearchQuestion` output. The runner's default
+fallback seeds zero retrieval keys, so all 40 runs have empty candidate
+chains and the panels terminate at `moderator_summary='error'`. Two
+architectural components are therefore load-bearing in combination: the
+deterministic triage substitute (invariably parse-clean) and the
+gold-question-anchored retrieval seed; removing the first cascades into
+the second, regressing the system to the `single_llm` envelope. The
+v2 path — a small purpose-trained triage model or schema-constrained
+decoding — is discussed in §8. The 0.090 ECE that `diet_os_llm_triage`
+posts is the spurious low-error of a system that has stopped engaging
+with the question, not an architectural strength.
