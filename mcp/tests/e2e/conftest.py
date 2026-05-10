@@ -118,10 +118,14 @@ def mcp_call(
             session_headers = {**_mcp_headers(gateway_key), "mcp-session-id": session_id}
 
             # Step 2: notifications/initialized.
-            client.post(
+            r2 = client.post(
                 f"{gateway_url}/mcp",
                 headers=session_headers,
                 json={"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
+            )
+            # Per MCP spec, notifications return 204; 200 also acceptable.
+            assert r2.status_code in (200, 202, 204), (
+                f"notifications/initialized failed: {r2.status_code} {r2.text[:200]}"
             )
 
             # Step 3: tools/call.
