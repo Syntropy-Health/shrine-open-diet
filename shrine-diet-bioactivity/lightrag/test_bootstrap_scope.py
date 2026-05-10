@@ -38,10 +38,26 @@ class _FakeRecord:
 
 @dataclass
 class _FakeResult:
+    """Minimal stub conforming to the neo4j ``Result`` protocol surface used by
+    ``bootstrap_scope``.
+
+    Contract:
+    - ``single()`` returns the first record (used by ``count_untagged`` /
+      ``tag_shared`` queries).
+    - ``__iter__`` yields records; required by ``create_indexes`` which drains
+      ``CALL db.relationshipTypes()`` via a list comprehension.
+    - ``consume()`` discards any remaining records and returns a
+      ``ResultSummary``-like object; called after every ``CREATE INDEX`` run.
+    """
+
     records: list[_FakeRecord] = field(default_factory=list)
 
     def single(self) -> _FakeRecord:
         return self.records[0]
+
+    def __iter__(self):
+        """Iterate over records — required by ``create_indexes`` list comprehension."""
+        return iter(self.records)
 
     def consume(self) -> None:  # pragma: no cover - trivial
         return None
@@ -85,6 +101,10 @@ class _FakeSession:
             count = self._driver.untagged_rels
             self._driver.untagged_rels = 0
             return _FakeResult([_FakeRecord({"c": count})])
+        # db.relationshipTypes() — return one representative type so create_indexes
+        # generates at least one edge-scope index statement.
+        if "db.relationshipTypes" in q:
+            return _FakeResult([_FakeRecord({"relationshipType": "DIRECTED"})])
         # CREATE INDEX ... or any other statement
         return _FakeResult([])
 
