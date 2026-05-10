@@ -1,0 +1,98 @@
+# Python MCP gateway CI — gates the user's success criteria for issue #34:
+#   - functional usability: pure-logic + mocked-client unit tests
+#   - integration usability: in-memory MCP-client SDK round-trip
+#   - data integrity (Aura): node/edge invariants on the live indexed KG
+#
+# Connectivity to the deployed instance is NOT gated here — `deploy-mcp.yml`
+# already polls /health post-deploy.
+#
+# This workflow is additive; the existing ci.yml continues to gate the TS MCP.
+
+name: MCP CI
+
+on:
+  pull_request:
+    branches: [main, test, "phase*/**"]
+    paths:
+      - 'mcp/**'
+      - 'shrine-diet-bioactivity/lightrag/tests/**'
+      - '.github/workflows/mcp-ci.yml'
+  push:
+    branches: [main, test]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  functional-integration:
+    name: Functional + Integration (KG MCP gateway)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install with [test] extras
+        run: pip install -e '.[test]'
+
+      - name: Functional (unit tests — pure logic, mocked client)
+        run: make test-unit
+
+      - name: Integration (in-memory MCP-client SDK round-trip)
+        run: make test-integration
+
+      - name: Coverage report
+        if: always()
+        run: make test-coverage || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mcp-coverage
+          path: mcp/htmlcov
+          if-no-files-found: ignore
+          retention-days: 14
+
+  aura-data-integrity:
+    name: Data Integrity (Aura instance)
+    runs-on: ubuntu-latest
+    # Skip on PRs from forks (no secrets available); only run on
+    # internal branches where NEO4J_* secrets are injected.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    defaults:
+      run:
+        working-directory: shrine-diet-bioactivity/lightrag
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Neo4j driver + pytest
+        run: pip install neo4j pytest
+
+      - name: Run Aura data-integrity gates
+        env:
+          NEO4J_URI: ${{ secrets.NEO4J_URI }}
+          NEO4J_USERNAME: ${{ secrets.NEO4J_USERNAME }}
+          NEO4J_PASSWORD: ${{ secrets.NEO4J_PASSWORD }}
+        run: |
+          if [ -z "$NEO4J_URI" ]; then
+            echo "::warning::NEO4J_URI secret not set — running gates in skip mode"
+          fi
+          python -m pytest tests/test_aura_data_integrity.py -v
