@@ -10,6 +10,14 @@ dependencies = [
     "pyjwt[crypto]>=2.8",  # Clerk JWT verification
 ]
 
+[project.optional-dependencies]
+# Optional integration-test extras. ``braintrust`` is soft-imported by
+# ``tests/e2e/_braintrust_logger.py``; tests run as a no-op when the SDK
+# is not installed and/or ``BRAINTRUST_API_KEY`` is unset.
+test = [
+    "braintrust>=0.0.180",
+]
+
 [project.scripts]
 kg-mcp-server = "kg_mcp.server:main"
 
