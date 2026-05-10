@@ -42,16 +42,22 @@ def neo4j_driver():
         from neo4j import GraphDatabase
     except ImportError:
         pytest.skip("neo4j driver not installed; skipping Aura gates.")
-    driver = GraphDatabase.driver(uri, auth=(user, password))
+    # GraphDatabase.driver() parses the URI eagerly and raises
+    # ConfigurationError on a missing scheme — keep it inside the same
+    # try-block as the session smoke-test so a misconfigured secret
+    # produces a clean skip+warning, not a hard test failure.
+    driver = None
     try:
+        driver = GraphDatabase.driver(uri, auth=(user, password))
         # Smoke-test the connection up front; without this a credentials
         # error wouldn't surface until the first per-test query, which
         # makes per-label test failures all look like the same root cause.
         with driver.session() as s:
             s.run("RETURN 1").consume()
-    except Exception as e:
-        driver.close()
-        pytest.skip(f"Neo4j connection failed ({type(e).__name__}); skipping.")
+    except Exception as e:  # noqa: BLE001 — surface any setup failure as skip
+        if driver is not None:
+            driver.close()
+        pytest.skip(f"Neo4j connection setup failed ({type(e).__name__}: {e}); skipping.")
     yield driver
     driver.close()
 
